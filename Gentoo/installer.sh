@@ -121,8 +121,6 @@ function second_setup () {
     sed -i "s|^GRUB_ENABLE_CRYPTODISK=\".*\"|GRUB_ENABLE_CRYPTODISK=\y\|" ./etc/default/grub
 }
 
-
-
 # Main script execution
 list_disks
 
