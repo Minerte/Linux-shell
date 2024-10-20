@@ -76,8 +76,8 @@ function setup_partitions() {
     echo "Disk $sel_disk configure with boot (EFI), encrypted root and home"
 }
 
-function first_setup () {
-    echo "This will now start to import and configer basic before chroot"
+function setup_stagefile () {
+    echo "This will download stage 3 file from gentoo and verify it"
     # Gentoo stage files and verify
     wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build at the end
     wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build.asc at the end
@@ -90,6 +90,7 @@ function first_setup () {
 
     tar tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner
 
+    echo "Will change some basic config"
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
     sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
     sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" ./etc/conf.d/keymaps
@@ -99,7 +100,7 @@ function first_setup () {
     echo "Europe/Stockholm" > ./etc/timezone
 }
 
-function second_setup () {
+function setup_config () {
     echo "We will configuer fstab and grub"
     #Upadteing ./etc/fstab
     local efi_uuid
@@ -107,7 +108,7 @@ function second_setup () {
     echo "LABEL=BTROOT  /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0" | tee -a ./etc/fstab
     echo "LABEL=BTROOT  /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0" | tee -a ./etc/fstab
     echo "UUID=$efi_uuid    /efi    vfat    umask=077   0 2" | tee -a ./etc/fstab
-    # echo "UUID=yyyyyyy  /boot    vfat    umask=077   0 2" | tee -a /etc/fstab
+    # echo "UUID=$efi_uuid  /boot    vfat    umask=077   0 2" | tee -a /etc/fstab
     # If user have made /boot partition
 
     # Grub config
@@ -121,17 +122,25 @@ function second_setup () {
     sed -i "s|^GRUB_ENABLE_CRYPTODISK=\".*\"|GRUB_ENABLE_CRYPTODISK=\y\|" ./etc/default/grub
 }
 
+function setup_portage () {
+    echo "This will setup the correct portage" # arguments are accessible through $1, $2,...
+    mkdir ./etc/portage/repos.conf
+    cp ./usr/share/portage/config/repos.conf ./etc/portage/repos.conf/gentoo.conf
+
+    # portgae file from github
+    mkdir ./etc/portage/env
+    mv ./root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
+    mv ./root/Linux-bash-shell/Gentoo/portage/package.env ./etc/portage/
+    mv ./root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
+    mv ./root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
+    mv ./root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
+}
+
 # Main script execution
 list_disks
 
 # Prompt user for disk selection
 read -r -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
-
-# Prompt user for boot partition size
-read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
-
-# Prompt user for mount point
-read -r -p "Enter the mount point for the root partition (e.g., /mnt/mydisk): " mount_point
 
 # Validate user input
 if [[ ! -b "$selected_disk" ]]; then
@@ -139,5 +148,23 @@ if [[ ! -b "$selected_disk" ]]; then
     exit 1
 fi
 
+# Prompt user for boot partition size
+read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
+
+# Prompt user for mount point
+read -r -p "Enter the mount point for the root partition (e.g., /mnt/mydisk): " mount_point
+
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$mount_point" "$crypt_name"
+
+wait
+# Call function stagefile
+setup_stagefile
+
+wait
+# Call funtion confige
+setup_config
+
+wait
+#copy over portage config to active root
+setup_portage
