@@ -1,0 +1,3 @@
+# Networking packages
+net-misc/networkmanager nss iptables tools connection-sharing dhcpcd
+net-dns/dnsmasq dhcp
