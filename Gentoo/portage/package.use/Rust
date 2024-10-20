@@ -1,0 +1,3 @@
+# Rust lang
+dev-lang/rust nightly rust-analyzer rust-src rustfmt #system-bootstrap #after compiling dev-lang/rust #
+net-misc/curl http2 ssl
