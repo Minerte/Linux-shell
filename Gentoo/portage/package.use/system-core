@@ -1,0 +1,17 @@
+# System pkg
+media-video/pipewire pipewire-alsa sound-server
+app-shells/bash-completion eselect
+sys-apps/systemd-utils tmpfiles
+sys-auth/seatd builtin server
+sys-boot/grub device-mapper
+app-crypt/pinentry caps
+app-portage/gemato gpg
+sys-apps/openrc bash
+dev-libs/openssl asm
+dev-lang/python ssl
+dev-libs/nettle gmp
+
+# Core packages
+app-crypt/gnupg smartcard tools ssl
+dev-vcs/git gpg highlight curl
+sys-block/parted device-mapper
