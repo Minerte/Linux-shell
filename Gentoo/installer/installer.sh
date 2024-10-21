@@ -1,11 +1,14 @@
 #!/bin/bash
 
+cd .
+
 # List avalibale disk
 function list_disks() {
     echo "Avalible disks:"
     lsblk -d -n -o NAME,SIZE | awk '{print "/dev/" $1 " - " $2}'
 }
 
+# Find UUID on selected disk
 function find_uuid() {
     local partition="$1"
     if [[ ! -b "$partition" ]]; then
@@ -21,9 +24,9 @@ function find_uuid() {
 
 # Format and mount selected disk
 function setup_partitions() {
+    echo "This script will not umount and reboot the system automaticlly after it is done"
     local sel_disk="$1"
     local boot_size="$2"
-    local mount_point="$3"
     local crypt_name="cryptroot"
 
     read -r -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
@@ -126,6 +129,8 @@ function setup_portage () {
     echo "This will setup the correct portage" # arguments are accessible through $1, $2,...
     mkdir ./etc/portage/repos.conf
     cp ./usr/share/portage/config/repos.conf ./etc/portage/repos.conf/gentoo.conf
+    # Copies network into Chroot
+    cp /etc/resolve.conf /mnt/gentoo/etc/
 
     # portgae file from github
     mkdir ./etc/portage/env
@@ -136,26 +141,110 @@ function setup_portage () {
     mv ./root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
 }
 
+function setup_chroot () {
+
+    echo "Setting upp chroot"
+    mount --types proc /proc /mnt/gentoo/proc
+    mount --rbind /sys /mnt/gentoo/sys
+    mount --make-rslave /mnt/gentoo/sys
+    mount --rbind /dev /mnt/gentoo/dev
+    mount --make-rslave /mnt/gentoo/dev
+    mount --bind /run /mnt/gentoo/run
+    mount --make-slave /mnt/gentoo/run
+
+    chroot /mnt/gentoo /bin/bash
+    source /etc/profile
+    export PS1="(chroot) ${PS1}"
+
+    emerge-webrsync
+    emerge --sync --quiet
+    emerge --config sys-libs/timezone-data
+
+    locale-gen
+    env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
+}
+
+function setup_in_chroot () {
+    local hostname="$1"
+    local username="$2"
+    echo "You are now inside chroot"
+    emerge --ask app-portaage/cpuid2cpuflags
+    sed -i "s|^CPU_FLAGS_X86=\"cpuid2cpuflags\"|CPU_FLAGS_X86=\"$cpuid2cpuflags\"|" /etc/portage/make.conf
+    sed -i "s|^MAKEOPTS=\"-j[THREADS] -l[THREADS]\"|MAKEOPTS=\"-j16 -l16\"|" /etc/portage/make.conf
+    nano /etc/portage/make.conf
+    # to confirm if the input from sed is right!
+    # if not correct correct it with use of antoher tty
+    
+    # Now we need to recompile the whole system from stage 3 files
+    emerge --emptytree -a -1 @installed
+    emerge dev-lang/rust
+
+    sed -i "s/#system-bootstrap/system-bootstrap/g" /etc/portage/package.use/Rust
+    nano /etc/portage/package.use/Rust
+    # After that install base packages
+    emerge --ask sys-kernel/gentoo-source sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
+    sys-fs/cryptsetup sys-fs/btrfs-progs sys-block/parted sys-boot/grub sys-apps/sysvinit sys-auth/seatd sys-apps/dbus \
+    sys-apps/pciutils sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-admin/doas \
+    app-shells/bash-completion dev-vcs/git gui-libs/greetd gui-apps/tuigreet app-editors/neovim
+
+    echo "permit :wheel" | tee -a /etc/doas.conf
+
+    chown -c root:root /etc/doas.conf
+    # If user want tot make doas.conf read only remove the comment
+    # chmod -c 0400 /etc/doas.conf
+
+    #configer greetd
+    sed -i "s/vt  = \?\/vt = \corrent\/g" /etc/greetd/config.toml
+    sed -i "s/command = \"agreety --cmd /bin/sh\"/command = \"tuigreet --cmd /bin/bash -t\"/g" /etc/greetd/config.toml
+    usermod greetd -aG video
+    usermod greetd -aG input
+    usermod greetd -aG seat
+
+    sed -i "s/c2:2345:respawn:/sbin/agetty 384000 tty2 linux/c2:2345:respawn:/bin/greetd/g" /etc/inittab
+
+    rc-update add seatd boot & rc-update add dbus boot
+    rc-update add NetworkManager default & rc-update add sysklogd default & rc-update add chronyd default
+    rc-update add cornie default
+
+    rc-update delete hostname boot
+    rc-service NetworkManager start
+    nmcli general hostname "$hostname" # change mega-test to you hotname
+    nmcli general hostname
+
+    passwd # Root password
+
+    useradd "$username"
+    passwd "$username"
+    usermod "$username" -aG users,wheel,video,audio,input,disk,floopy,cdrom,seat
+}
+
+function setup_kernel () {
+    echo "time for kernel config"
+    eselect kernel set 1
+    genkernel --luks --btrfs --keymap --oldconfig --save-config --menuconfig --install all
+}
+
+function setup_grub () {
+    echo "GRUB"
+    grub-install --target=x86_64-efi --efi-directory=/efi
+    grub-mkconfig -o /boot/grub/grub.cfg
+
+    echo "This script will not umount and reboot the system automaticlly after it is done"
+    echo "If user want to do more suff after grub is done user can"
+}
 # Main script execution
 list_disks
-
 # Prompt user for disk selection
 read -r -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
-
 # Validate user input
 if [[ ! -b "$selected_disk" ]]; then
     echo "Error: $selected_disk is not a valid block device."
     exit 1
 fi
-
 # Prompt user for boot partition size
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
-
-# Prompt user for mount point
-read -r -p "Enter the mount point for the root partition (e.g., /mnt/mydisk): " mount_point
-
 # Call the function to format and mount the disk
-setup_partitions "$selected_disk" "$boot_size" "$mount_point" "$crypt_name"
+setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
 wait
 # Call function stagefile
@@ -166,5 +255,35 @@ wait
 setup_config
 
 wait
-#copy over portage config to active root
+# Copy over portage config to active root
 setup_portage
+
+wait
+# Call for chroot prep
+setup_chroot
+
+wait
+# user enter hostname
+read -r -p "Enter the username for the new user: " hostname
+# Check if the username is empty
+if [[ -z "$hostname" ]]; then
+    echo "Error: Username cannot be empty."
+    exit 1
+fi
+#
+read -r -p "Enter the username for the new user: " username
+# Check if the username is empty
+if [[ -z "$username" ]]; then
+    echo "Error: Username cannot be empty."
+    exit 1
+fi
+# Entering chroot
+setup_in_chroot "$hostname" "$username"
+
+wait
+# Kenerel setup
+setup_kernel
+
+wait
+# GRUB
+setup-grub
