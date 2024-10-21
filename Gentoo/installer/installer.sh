@@ -37,14 +37,15 @@ function setup_partitions() {
     
     # Using parted for disk partion
     echo "Ready to format selected disk $sel_disk..."
-    parted "$sel_disk" mklabel gpt
-    echo "Creating boot partition of size ${boot_size}GB..."
-    parted -s "$sel_disk" mkpart boot fat32 0% "${boot_size}G"
-    echo "Creating root pratition with rest of the disk"
-    parted "$sel_disk" mkpart root btrfs "${boot_size}G" 100%
-    parted set 1 boot on
-    parted p
-    parted q
+    echo "It will create 1G efi and rest of the disk is root"
+    parted  --script "$sel_disk" \
+        mklabel gpt \
+        mkpart boot fat32 0% "${boot_size}G" \
+        mkpart root btrfs "${boot_size}G" 100% \
+        set 1 boot on \
+        p \
+        q \
+    || exit
 
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
