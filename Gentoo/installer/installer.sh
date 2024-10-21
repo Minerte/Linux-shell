@@ -185,7 +185,8 @@ function setup_in_chroot () {
     emerge --ask sys-kernel/gentoo-source sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
     sys-fs/cryptsetup sys-fs/btrfs-progs sys-block/parted sys-boot/grub sys-apps/sysvinit sys-auth/seatd sys-apps/dbus \
     sys-apps/pciutils sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-admin/doas \
-    app-shells/bash-completion dev-vcs/git gui-libs/greetd gui-apps/tuigreet app-editors/neovim
+    app-shells/bash-completion dev-vcs/git gui-libs/greetd gui-apps/tuigreet app-editors/neovim sys-apps/mlocate \
+    sys-block/io-scheduler-udev-rules
 
     echo "permit :wheel" | tee -a /etc/doas.conf
 
