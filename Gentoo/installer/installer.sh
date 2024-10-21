@@ -45,11 +45,6 @@ function setup_partitions() {
         q \
     || exit
 
-    # mkdir for mountpoint
-    mkdir -p /mnt/root
-    mkdir -p /mnt/gentoo/home
-    mkdir -p /mnt/gentoo/efi
-
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
     mkfs.vfat -F 32 "${sel_disk}1"
@@ -58,7 +53,8 @@ function setup_partitions() {
     echo "Disk encryption for second partition"
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
     cryptsetup luksOpen "${sel_disk}2" $crypt_name
-
+    mkdir -p /mnt/root
+    sleep 3
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root and in /mnt/gentoo/"
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
@@ -67,7 +63,12 @@ function setup_partitions() {
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
-    sleep 3
+
+    sleep 10
+    # mkdir for mountpoint
+    mkdir -p /mnt/gentoo/home
+    mkdir -p /mnt/gentoo/efi
+    sleep 10
 
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
@@ -121,6 +122,8 @@ function setup_config () {
     echo "UUID=$efi_uuid    /efi    vfat    umask=077   0 2" | tee -a ./etc/fstab
     # echo "UUID=$efi_uuid  /boot    vfat    umask=077   0 2" | tee -a /etc/fstab
     # If user have made /boot partition
+
+    sleep 3
 
     # Grub config
     local root_uuid
@@ -257,7 +260,6 @@ if [[ ! -b "$selected_disk" ]]; then
 fi
 # Prompt user for boot partition size
 read -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
-
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
