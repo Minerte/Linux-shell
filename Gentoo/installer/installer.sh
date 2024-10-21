@@ -45,6 +45,8 @@ function setup_partitions() {
         q \
     || exit
 
+    mkdir -p /mnt/gentoo
+
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
     mkfs.vfat -F 32 "${sel_disk}1"
