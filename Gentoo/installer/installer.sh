@@ -20,7 +20,7 @@ function find_uuid() {
     echo "$uuid"
 }
 
-function mkdir () {
+function set_mkdir () {
     echo "this will mkdir idk to be honest if it works"
     echo "For if this is in function setup_partition it will only create root"
     mkdir /mnt/root || exit
@@ -259,6 +259,8 @@ if [[ ! -b "$selected_disk" ]]; then
 fi
 # Prompt user for boot partition size
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
+
+set_mkdir
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
