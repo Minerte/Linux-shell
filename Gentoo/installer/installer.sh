@@ -1,4 +1,11 @@
 #!/bin/bash
+function set_mkdir () {
+    echo "this will mkdir idk to be honest if it works"
+    echo "For if this is in function setup_partition it will only create root"
+    mkdir /mnt/root
+    mkdir /mnt/gentoo/home
+    mkdir /mnt/gentoo/efi
+}
 
 # List avalibale disk
 function list_disks() {
@@ -20,14 +27,6 @@ function find_uuid() {
     echo "$uuid"
 }
 
-function set_mkdir () {
-    echo "this will mkdir idk to be honest if it works"
-    echo "For if this is in function setup_partition it will only create root"
-    mkdir /mnt/root || exit
-    mkdir /mnt/gentoo/home || exit # bash will not create
-    mkdir /mnt/gentoo/efi || exit # bash will not create
-    # mkdir /mnt/gentoo/boot || exit # If user want uncomment
-}
 # Format and mount selected disk
 function setup_partitions() {
     echo "This script will not umount and reboot the system automaticlly after it is done"
@@ -248,6 +247,11 @@ function setup_grub () {
     echo "This script will not umount and reboot the system automaticlly after it is done"
     echo "If user want to do more suff after grub is done user can"
 }
+
+#setup mkdir
+setup_mkdir
+
+wait
 # Main script execution
 list_disks
 # Prompt user for disk selection
@@ -260,7 +264,6 @@ fi
 # Prompt user for boot partition size
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
 
-set_mkdir
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
