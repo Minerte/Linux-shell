@@ -77,15 +77,15 @@ function setup_partitions() {
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/
     sleep  5
-    
+
     # EFIhell
     mkdir /mnt/gentoo/efi
     mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
+
+    sleep 10
     # Boot
     # mkdir /mnt/gentoo/boot
     # mount /dev/"${sel_disk}1" /mnt/gentoo/boot/
-
-    sleep 3
     
     echo "Disk $sel_disk configure with boot (EFI), encrypted root and home"
 }
