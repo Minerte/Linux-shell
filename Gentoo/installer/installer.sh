@@ -40,9 +40,11 @@ function setup_partitions() {
     parted "$sel_disk" mklabel gpt
     echo "Creating boot partition of size ${boot_size}GB..."
     parted -s "$sel_disk" mkpart boot fat32 0% "${boot_size}G"
-    parted set 1 boot on
     echo "Creating root pratition with rest of the disk"
     parted "$sel_disk" mkpart root btrfs "${boot_size}G" 100%
+    parted set 1 boot on
+    parted p
+    parted q
 
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
@@ -82,8 +84,8 @@ function setup_partitions() {
 function setup_stagefile () {
     echo "This will download stage 3 file from gentoo and verify it"
     # Gentoo stage files and verify
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz # Add latest version of set build at the end
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz.asc # Add latest version of set build.asc at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build.asc at the end
 
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc
     gpg --verify ./stage3-*.tar.xz.asc
