@@ -1,11 +1,4 @@
 #!/bin/bash
-function set_mkdir () {
-    echo "this will mkdir idk to be honest if it works"
-    echo "For if this is in function setup_partition it will only create root"
-    mkdir /mnt/root
-    mkdir /mnt/gentoo/home
-    mkdir /mnt/gentoo/efi
-}
 
 # List avalibale disk
 function list_disks() {
@@ -34,7 +27,7 @@ function setup_partitions() {
     local boot_size="$2"
     local crypt_name="cryptroot"
 
-    read -r -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
+    read -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
     if [[ "$confirm" != "y" ]]; then
         echo "Aborted."
         exit 0
@@ -51,6 +44,11 @@ function setup_partitions() {
         p \
         q \
     || exit
+
+    # mkdir for mountpoint
+    mkdir -p /mnt/root
+    mkdir -p /mnt/gentoo/home
+    mkdir -p /mnt/gentoo/efi
 
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
@@ -88,8 +86,8 @@ function setup_partitions() {
 function setup_stagefile () {
     echo "This will download stage 3 file from gentoo and verify it"
     # Gentoo stage files and verify
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build at the end
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build.asc at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz # Add latest version of set build at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz.asc # Add latest version of set build.asc at the end
 
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc
     gpg --verify ./stage3-*.tar.xz.asc
@@ -248,21 +246,17 @@ function setup_grub () {
     echo "If user want to do more suff after grub is done user can"
 }
 
-#setup mkdir
-setup_mkdir
-
-wait
 # Main script execution
 list_disks
 # Prompt user for disk selection
-read -r -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
+read -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
 # Validate user input
 if [[ ! -b "$selected_disk" ]]; then
     echo "Error: $selected_disk is not a valid block device."
     exit 1
 fi
 # Prompt user for boot partition size
-read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
+read -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
 
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
@@ -285,14 +279,14 @@ setup_chroot
 
 wait
 # user enter hostname
-read -r -p "Enter the username for the new user: " hostname
+read -p "Enter the username for the new user: " hostname
 # Check if the username is empty
 if [[ -z "$hostname" ]]; then
     echo "Error: Username cannot be empty."
     exit 1
 fi
 #
-read -r -p "Enter the username for the new user: " username
+read -p "Enter the username for the new user: " username
 # Check if the username is empty
 if [[ -z "$username" ]]; then
     echo "Error: Username cannot be empty."
