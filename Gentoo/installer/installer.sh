@@ -155,11 +155,11 @@ function setup_portage () {
 
     # portgae file from github
     mkdir ./etc/portage/env
-    mv ./root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
-    mv ./root/Linux-bash-shell/Gentoo/portage/package.env ./etc/portage/
-    mv ./root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
-    mv ./root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
-    mv ./root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
+    mv /root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
+    mv /root/Linux-bash-shell/Gentoo/portage/package.env ./etc/portage/
+    mv /root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
+    mv /root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
+    mv /root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
 
     sleep 10
 }
