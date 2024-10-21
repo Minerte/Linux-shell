@@ -32,6 +32,36 @@ function setup_partitions() {
         echo "Aborted."
         exit 0
     fi
+    create_directory () {
+        local dir_name=$1
+            # Check if the directory name is empty
+        if [[ -z "$dir_name" ]]; then
+            echo "Error: Directory name cannot be empty."
+            return 1
+        fi
+
+        # Check if the directory already exists
+        if [[ -d "$dir_name" ]]; then
+            echo "The directory '$dir_name' already exists."
+        else
+            # Attempt to create the directory
+            mkdir -p "$dir_name"
+        
+            # Check if mkdir was successful
+            if [[ $? -eq 0 ]]; then
+                echo "Directory '$dir_name' created successfully."
+            else
+                echo "Error: Failed to create directory '$dir_name'."
+                return 1
+            fi
+        fi
+    }
+
+    # Create each directory
+    create_directory "$dir1"
+    create_directory "$dir2"
+    create_directory "$dir3"
+    create_directory "$dir4"
 
     mkdir -p /mnt/gentoo
     mkdir -p /mnt/gentoo/home
@@ -258,6 +288,19 @@ if [[ ! -b "$selected_disk" ]]; then
 fi
 # Prompt user for boot partition size
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
+
+# Prompt the user for the directory name
+read -r -p "Enter the name or full path of the directory to create: " dir1
+read -r -p "Enter the name or full path of the directory to create: " dir2
+read -r -p "Enter the name or full path of the directory to create: " dir3
+read -r -p "Enter the name or full path of the directory to create: " dir4
+
+# Check if the directory name is empty
+if [[ -z "$dir_name" ]]; then
+    echo "Error: Directory name cannot be empty."
+    exit 1
+fi
+
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
