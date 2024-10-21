@@ -63,11 +63,6 @@ function setup_partitions() {
     create_directory "$dir3"
     create_directory "$dir4"
 
-    mkdir -p /mnt/gentoo
-    mkdir -p /mnt/gentoo/home
-    mkdir -p /mnt/gentoo/efi
-    mkdir -p /mnt/root
-
     # Using parted for disk partion
     echo "Ready to format selected disk $sel_disk..."
     echo "It will create 1G efi and rest of the disk is root"
