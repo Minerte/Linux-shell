@@ -75,8 +75,8 @@ function setup_partitions() {
     sleep  30
 
     # EFIhell
-    mkdir /mnt/gentoo/efi
-    mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
+    mkdir ./mnt/gentoo/efi
+    mount /dev/"${sel_disk}1" ./mnt/gentoo/efi/
 
     sleep 10
     # Boot
