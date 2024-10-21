@@ -1,7 +1,5 @@
 #!/bin/bash
 
-cd .
-
 # List avalibale disk
 function list_disks() {
     echo "Avalible disks:"
@@ -58,8 +56,10 @@ function setup_partitions() {
 
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
-    mkdir ./mnt/root
-    mkdir ./mnt/gentoo/home
+    sleep 30
+    mkdir /mnt/root || exit
+    mkdir /mnt/gentoo/home || exit
+    echo "Will it create dir in /mnt/ and /mnt/gentoo/"
     sleep 10
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
@@ -75,8 +75,8 @@ function setup_partitions() {
     sleep  30
 
     # EFIhell
-    mkdir ./mnt/gentoo/efi
-    mount /dev/"${sel_disk}1" ./mnt/gentoo/efi/
+    mkdir /mnt/gentoo/efi || exit
+    mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
 
     sleep 10
     # Boot
