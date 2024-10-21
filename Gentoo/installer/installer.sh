@@ -20,6 +20,14 @@ function find_uuid() {
     echo "$uuid"
 }
 
+function mkdir () {
+    echo "this will mkdir idk to be honest if it works"
+    echo "For if this is in function setup_partition it will only create root"
+    mkdir /mnt/root || exit
+    mkdir /mnt/gentoo/home || exit # bash will not create
+    mkdir /mnt/gentoo/efi || exit # bash will not create
+    # mkdir /mnt/gentoo/boot || exit # If user want uncomment
+}
 # Format and mount selected disk
 function setup_partitions() {
     echo "This script will not umount and reboot the system automaticlly after it is done"
@@ -55,12 +63,7 @@ function setup_partitions() {
     cryptsetup luksOpen "${sel_disk}2" $crypt_name
 
     # Will make btrfs and mount it in /mnt/root
-    echo "Creating filesystem and mountpoint in /mnt/root"
-    sleep 30
-    mkdir /mnt/root || exit
-    mkdir /mnt/gentoo/home || exit
-    echo "Will it create dir in /mnt/ and /mnt/gentoo/"
-    sleep 10
+    echo "Creating filesystem and mountpoint in /mnt/root and in /mnt/gentoo/"
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
 
@@ -74,13 +77,10 @@ function setup_partitions() {
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/
     sleep  30
 
-    # EFIhell
-    mkdir /mnt/gentoo/efi || exit
+    # EFI
     mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
-
     sleep 10
     # Boot
-    # mkdir /mnt/gentoo/boot
     # mount /dev/"${sel_disk}1" /mnt/gentoo/boot/
     
     echo "Disk $sel_disk configure with boot (EFI), encrypted root and home"
