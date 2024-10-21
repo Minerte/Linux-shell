@@ -47,20 +47,28 @@ function setup_partitions() {
         q \
     || exit
 
+    sleep 10
+
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
     mkfs.vfat -F 32 "${sel_disk}1"
+
+    sleep 3
 
     # Encryption on second partition
     echo "Disk encryption for second partition"
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
     cryptsetup luksOpen "${sel_disk}2" "$crypt_name"
 
+    sleep 3
+
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mkdir /mnt/root
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
+
+    sleep 3
 
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
@@ -72,12 +80,16 @@ function setup_partitions() {
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home
     
+    sleep 10
+
     # EFI
     mkdir /mnt/gentoo/efi
     mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
     # Boot
     # mkdir /mnt/gentoo/boot
     # mount /dev/"${sel_disk}1" /mnt/gentoo/boot/
+
+    sleep 3
     
     echo "Disk $sel_disk configure with boot (EFI), encrypted root and home"
 }
@@ -91,10 +103,14 @@ function setup_stagefile () {
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc
     gpg --verify ./stage3-*.tar.xz.asc
 
+    sleep 3
+
     mv ./stage3-*.tar.xz /mnt/gentoo
     cd /mnt/gentoo || exit
 
     tar tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner
+
+    sleep 3
 
     echo "Will change some basic config"
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
@@ -135,6 +151,8 @@ function setup_portage () {
     # Copies network into Chroot
     cp /etc/resolve.conf /mnt/gentoo/etc/
 
+    sleep 10
+
     # portgae file from github
     mkdir ./etc/portage/env
     mv ./root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
@@ -142,6 +160,8 @@ function setup_portage () {
     mv ./root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
     mv ./root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
     mv ./root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
+
+    sleep 10
 }
 
 function setup_chroot () {
