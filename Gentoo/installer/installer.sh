@@ -54,14 +54,13 @@ function setup_partitions() {
     # Encryption on second partition
     echo "Disk encryption for second partition"
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
-    cryptsetup luksOpen "${sel_disk}2" "$crypt_name"
+    cryptsetup luksOpen "${sel_disk}2" $crypt_name
 
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
-    mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
-    sleep 5
     mkdir /mnt/root
-    sleep 5
+    mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
+    sleep 10
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
     sleep 3
 
