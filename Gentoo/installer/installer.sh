@@ -82,8 +82,8 @@ function setup_partitions() {
 function setup_stagefile () {
     echo "This will download stage 3 file from gentoo and verify it"
     # Gentoo stage files and verify
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build at the end
-    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/ # Add latest version of set build.asc at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz # Add latest version of set build at the end
+    wget https://distfiles.gentoo.org/releases/amd64/autobuilds/20241020T170324Z/stage3-amd64-hardened-openrc-20241020T170324Z.tar.xz.asc # Add latest version of set build.asc at the end
 
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc
     gpg --verify ./stage3-*.tar.xz.asc
