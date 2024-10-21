@@ -47,42 +47,38 @@ function setup_partitions() {
         q \
     || exit
 
-    sleep 10
-
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
     mkfs.vfat -F 32 "${sel_disk}1"
-
-    sleep 3
 
     # Encryption on second partition
     echo "Disk encryption for second partition"
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
     cryptsetup luksOpen "${sel_disk}2" "$crypt_name"
 
-    sleep 3
-
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
+    sleep 5
     mkdir /mnt/root
+    sleep 5
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
-
     sleep 3
 
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
 
+    sleep 10
+
     # Mounting subvolume
     mkdir /mnt/gentoo/home
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/
+    sleep  5
     
-    sleep 10
-
-    # EFI
+    # EFIhell
     mkdir /mnt/gentoo/efi
     mount /dev/"${sel_disk}1" /mnt/gentoo/efi/
     # Boot
@@ -155,11 +151,11 @@ function setup_portage () {
 
     # portgae file from github
     mkdir ./etc/portage/env
-    mv /root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
-    mv /root/Linux-bash-shell/Gentoo/portage/package.env ./etc/portage/
-    mv /root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
-    mv /root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
-    mv /root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
+    mv ~/root/Linux-bash-shell/Gentoo/portage/make.conf ./etc/portage/
+    mv ~/root/Linux-bash-shell/Gentoo/portage/package.env ./etc/portage/
+    mv ~/root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
+    mv ~/root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
+    mv ~/root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
 
     sleep 10
 }
