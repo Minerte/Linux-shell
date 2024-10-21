@@ -59,22 +59,20 @@ function setup_partitions() {
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
     mkdir /mnt/root
+    mkdir /mnt/gentoo/home/
     sleep 10
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
-    sleep 30
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
-    sleep 10
 
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
-    mkdir /mnt/gentoo/home/
-    sleep 10
+    sleep 3
 
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/
-    sleep  10
+    sleep  30
 
     # EFIhell
     mkdir /mnt/gentoo/efi
