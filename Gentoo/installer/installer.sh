@@ -32,7 +32,12 @@ function setup_partitions() {
         echo "Aborted."
         exit 0
     fi
-    
+
+    mkdir -p /mnt/gentoo
+    mkdir -p /mnt/gentoo/home
+    mkdir -p /mnt/gentoo/efi
+    mkdir -p /mnt/root
+
     # Using parted for disk partion
     echo "Ready to format selected disk $sel_disk..."
     echo "It will create 1G efi and rest of the disk is root"
@@ -45,8 +50,6 @@ function setup_partitions() {
         q \
     || exit
 
-    mkdir -p /mnt/gentoo
-
     # Foramtting boot/efi pratition
     echo "Formatting boot pratition"
     mkfs.vfat -F 32 "${sel_disk}1"
@@ -55,22 +58,15 @@ function setup_partitions() {
     echo "Disk encryption for second partition"
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
     cryptsetup luksOpen "${sel_disk}2" $crypt_name
-    mkdir -p /mnt/root
     sleep 3
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root and in /mnt/gentoo/"
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
-
+    sleep 5
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
-
-    sleep 10
-    # mkdir for mountpoint
-    mkdir -p /mnt/gentoo/home
-    mkdir -p /mnt/gentoo/efi
-    sleep 10
 
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
@@ -254,14 +250,14 @@ function setup_grub () {
 # Main script execution
 list_disks
 # Prompt user for disk selection
-read -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
+read -r -p "Enter the disk you want to format (e.g., /dev/sdb): " selected_disk
 # Validate user input
 if [[ ! -b "$selected_disk" ]]; then
     echo "Error: $selected_disk is not a valid block device."
     exit 1
 fi
 # Prompt user for boot partition size
-read -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
+read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
 # Call the function to format and mount the disk
 setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
 
