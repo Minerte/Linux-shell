@@ -59,7 +59,7 @@ function setup_partitions() {
     # Will make btrfs and mount it in /mnt/root
     echo "Creating filesystem and mountpoint in /mnt/root"
     mkdir /mnt/root
-    mkdir /mnt/gentoo/home/
+    mkdir /mnt/gentoo/home
     sleep 10
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
