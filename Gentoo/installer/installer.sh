@@ -26,8 +26,9 @@ function setup_partitions() {
     local sel_disk="$1"
     local boot_size="$2"
     local crypt_name="cryptroot"
+    local btrfs_mount="/mnt/gentoo"
 
-    read -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
+    read -r -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
     if [[ "$confirm" != "y" ]]; then
         echo "Aborted."
         exit 0
@@ -54,15 +55,19 @@ function setup_partitions() {
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2"
     cryptsetup luksOpen "${sel_disk}2" $crypt_name
     # Will make btrfs and mount it in /mnt/root
-    echo "Creating filesystem and mountpoint in /mnt/root and in /mnt/gentoo/"
+    mkdir /mnt/root
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/
     # Creating subvolume
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
+
+    mkdir -p "$btrfs_mount/home"
+    mkdir -p "$btrfs_mount/efi"
+    
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/"$crypt_name" "$btrfs_mount"
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/"$crypt_name" "$btrfs_mount/home"
     sleep  30
 
     # EFI
@@ -84,7 +89,7 @@ function setup_stagefile () {
 
     sleep 3
 
-    mv ./stage3-*.tar.xz /mnt/gentoo
+    mv ~./stage3-*.tar.xz /mnt/gentoo
     cd /mnt/gentoo || exit
 
     tar tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner
@@ -238,6 +243,11 @@ function setup_grub () {
     echo "If user want to do more suff after grub is done user can"
 }
 
+# Ensure the script is run as root
+if [ "$(id -u)" != "0" ]; then
+  echo "This script must be run as root!"
+  exit 1
+fi
 # Main script execution
 list_disks
 # Prompt user for disk selection
@@ -251,46 +261,20 @@ fi
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
 
 # Call the function to format and mount the disk
-setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
+setup_partitions "$selected_disk" "$boot_size" "$crypt_name" && setup_stagefile && setup_config && setup_portage && setup_chroot
 
-wait
-# Call function stagefile
-setup_stagefile
-
-wait
-# Call funtion confige
-setup_config
-
-wait
-# Copy over portage config to active root
-setup_portage
-
-wait
-# Call for chroot prep
-setup_chroot
-
-wait
-# user enter hostname
-read -p "Enter the username for the new user: " hostname
+read -r -p "Enter the username for the new user: " hostname
 # Check if the username is empty
 if [[ -z "$hostname" ]]; then
     echo "Error: Username cannot be empty."
     exit 1
 fi
 #
-read -p "Enter the username for the new user: " username
+read -r -p "Enter the username for the new user: " username
 # Check if the username is empty
 if [[ -z "$username" ]]; then
     echo "Error: Username cannot be empty."
     exit 1
 fi
 # Entering chroot
-setup_in_chroot "$hostname" "$username"
-
-wait
-# Kenerel setup
-setup_kernel
-
-wait
-# GRUB
-setup-grub
+setup_in_chroot "$hostname" "$username" && setup_kernel && setup-grub
