@@ -26,7 +26,6 @@ function setup_partitions() {
     local sel_disk="$1"
     local boot_size="$2"
     local crypt_name="cryptroot"
-    local btrfs_mount="/mnt/gentoo"
 
     read -r -p "You are about to format the SELECTED disk: $sel_disk. Are you sure? (y/n) " confirm
     if [[ "$confirm" != "y" ]]; then
@@ -62,12 +61,13 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
 
-    mkdir -p "$btrfs_mount/home"
-    mkdir -p "$btrfs_mount/efi"
-    
+    cd /mnt/gentoo
+    mkdir /home
+    mkdir /efi
+    cd
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/"$crypt_name" "$btrfs_mount"
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/"$crypt_name" "$btrfs_mount/home"
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home
     sleep  30
 
     # EFI
