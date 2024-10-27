@@ -61,10 +61,12 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
 
-    cd /mnt/gentoo
-    mkdir /home
-    mkdir /efi
-    cd
+    mkdir -p /mnt/gentoo
+    cd /mnt/gentoo ||  exit
+    mkdir /home || exit
+    mkdir /efi || exit
+    cd || exit
+
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home
@@ -117,8 +119,6 @@ function setup_config () {
     # echo "UUID=$efi_uuid  /boot    vfat    umask=077   0 2" | tee -a /etc/fstab
     # If user have made /boot partition
 
-    sleep 3
-
     # Grub config
     local root_uuid
     root_uuid=$(find_uuid "/dev/mapper/$crypt_name")
@@ -146,8 +146,6 @@ function setup_portage () {
     mv ~/root/Linux-bash-shell/Gentoo/portage/env/no-lto ./etc/portage/env/
     mv ~/root/Linux-bash-shell/Gentoo/portage/package.accept.keywords/tui ./etc/portage/package.acccept.keywords/
     mv ~/root/Linux-bash-shell/Gentoo/portage/package.use/* ./etc/portage/package.use/
-
-    sleep 10
 }
 
 function setup_chroot () {
