@@ -62,9 +62,9 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/home
 
     mkdir -p /mnt/gentoo
-    cd /mnt/gentoo || exit
-    mkdir /home || exit
-    mkdir /efi || exit
+    cd /mnt/gentoo | exit
+    mkdir /home | exit
+    mkdir /efi | exit
     cd || exit
 
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
