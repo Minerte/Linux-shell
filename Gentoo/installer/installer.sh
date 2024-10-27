@@ -61,11 +61,8 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot
     btrfs subvolume create /mnt/root/home
 
-    mkdir -p /mnt/gentoo
-    cd /mnt/gentoo | exit
-    mkdir /home | exit
-    mkdir /efi | exit
-    cd || exit
+    mkdir -p /mnt/gentoo/home || exit
+    mkdir -p /mnt/gentoo/efi || exit
 
     # /mnt/gentoo coming from wiki where root is suppose to be mounted
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo
