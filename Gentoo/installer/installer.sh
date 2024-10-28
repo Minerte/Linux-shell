@@ -256,7 +256,11 @@ fi
 read -r -p "Enter the size of the boot partition in GB (e.g., 1 for 1GB): " boot_size
 
 # Call the function to format and mount the disk
-setup_partitions "$selected_disk" "$boot_size" "$crypt_name" && setup_stagefile && setup_config && setup_portage && setup_chroot
+setup_partitions "$selected_disk" "$boot_size" "$crypt_name"
+setup_stagefile
+setup_config
+setup_portage
+setup_chroot
 
 read -r -p "Enter the username for the new user: " hostname
 # Check if the username is empty
@@ -272,4 +276,6 @@ if [[ -z "$username" ]]; then
     exit 1
 fi
 # Entering chroot
-setup_in_chroot "$hostname" "$username" && setup_kernel && setup-grub
+setup_in_chroot "$hostname" "$username"
+setup_kernel
+setup-grub
