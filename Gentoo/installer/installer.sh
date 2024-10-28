@@ -278,4 +278,4 @@ fi
 # Entering chroot
 setup_in_chroot "$hostname" "$username"
 setup_kernel
-setup-grub
+setup_grub
