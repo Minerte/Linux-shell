@@ -262,14 +262,14 @@ setup_config
 setup_portage
 setup_chroot
 
-read -r -p "Enter the username for the new user: " hostname
+read -r -p "Enter the system hostname: " hostname
 # Check if the username is empty
 if [[ -z "$hostname" ]]; then
     echo "Error: Username cannot be empty."
     exit 1
 fi
 #
-read -r -p "Enter the username for the new user: " username
+read -r -p "Enter the new user's name: " username
 # Check if the username is empty
 if [[ -z "$username" ]]; then
     echo "Error: Username cannot be empty."
