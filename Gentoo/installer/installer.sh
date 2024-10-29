@@ -57,7 +57,7 @@ function setup_partitions() {
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2" || { echo "Encryption setup failed."; exit 1; }
     cryptsetup luksOpen "${sel_disk}2" $CRYPT_NAME || { echo "Failed to open encrypted partition."; exit 1; }
 
-    mkdir -p /mnt/root || exit
+    mkdir /mnt/root || exit
     mkfs.btrfs -L BTROOT /dev/mapper/$CRYPT_NAME || { echo "Failed to format encrypted root partition."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$CRYPT_NAME /mnt/root || { echo "Failed to mount root."; exit 1; }
 
