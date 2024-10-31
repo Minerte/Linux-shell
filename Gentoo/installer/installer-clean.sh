@@ -53,7 +53,7 @@ function setup_partitions() {
 
     echo "Setting up disk encryption for root partition."
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2" || { echo "Encryption setup failed."; exit 1; }
-    cryptsetup luksOpen "${sel_disk}2" /dev/mapper/$crypt_name || { echo "Failed to open encrypted partition."; exit 1; }
+    cryptsetup luksOpen "${sel_disk}2" $crypt_name || { echo "Failed to open encrypted partition."; exit 1; }
 
     mkdir -p /mnt/root /mnt/gentoo/efi /mnt/gentoo/home || { echo "Could not create directory."; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name || { echo "Failed to format encrypted root partition."; exit 1; }
