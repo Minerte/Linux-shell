@@ -176,7 +176,7 @@ if [[ -z "$boot_size" || ! "$boot_size" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-setup_disk_partition "$selected_disk" "$boot_size"
+setup_partitions"$selected_disk" "$boot_size"
 download_and_verify
 configure_system "$selected_disk"
 configure_portage
