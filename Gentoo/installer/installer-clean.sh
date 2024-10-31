@@ -32,6 +32,7 @@ function find_uuid() {
 function setup_partitions() {
     local sel_disk="$1"
     local boot_size="$2"
+    local crypt_name="cryptroot"
 
     read -r -p "You are about to format the selected disk: $sel_disk. Are you sure? (y/n) " confirm
     if [[ "$confirm" != "y" ]]; then
@@ -52,17 +53,17 @@ function setup_partitions() {
 
     echo "Setting up disk encryption for root partition."
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2" || { echo "Encryption setup failed."; exit 1; }
-    cryptsetup luksOpen "${sel_disk}2" /dev/mapper/cryptroot || { echo "Failed to open encrypted partition."; exit 1; }
+    cryptsetup luksOpen "${sel_disk}2" /dev/mapper/$crypt_name || { echo "Failed to open encrypted partition."; exit 1; }
 
     mkdir -p /mnt/root /mnt/gentoo/efi /mnt/gentoo/home || { echo "Could not create directory."; exit 1; }
-    mkfs.btrfs -L BTROOT /dev/mapper/cryptroot || { echo "Failed to format encrypted root partition."; exit 1; }
-    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount root."; exit 1; }
+    mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name || { echo "Failed to format encrypted root partition."; exit 1; }
+    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root || { echo "Failed to mount root."; exit 1; }
 
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
 
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo || exit
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/cryptroot /mnt/gentoo/home || exit
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo || exit
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home || exit
 
     mount "${sel_disk}1" /mnt/gentoo/efi || { echo "Failed to mount EFI partition."; exit 1; }
     echo "Disk $sel_disk configured with boot (EFI), encrypted root, and home partitions."
@@ -176,7 +177,7 @@ if [[ -z "$boot_size" || ! "$boot_size" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-setup_partitions"$selected_disk" "$boot_size"
+setup_disk_partition "$selected_disk" "$boot_size"
 download_and_verify
 configure_system "$selected_disk"
 configure_portage
