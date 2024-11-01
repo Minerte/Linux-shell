@@ -40,8 +40,7 @@ function setup_partitions() {
         exit 0
     fi
 
-    umount -r /mnt/* /dev/null
-    rm -rf /mnt/gentoo
+    rm -rf /mnt/gentoo || { echo "Failed to remove /mnt/gentoo."; exit 1; }
 
     echo "Formatting disk $sel_disk and creating partitions..."
     parted --script "$sel_disk" mklabel gpt \
@@ -55,17 +54,19 @@ function setup_partitions() {
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2" || { echo "Encryption setup failed."; exit 1; }
     cryptsetup luksOpen "${sel_disk}2" $crypt_name || { echo "Failed to open encrypted partition."; exit 1; }
 
-    mkdir -p /mnt/root /mnt/gentoo/efi /mnt/gentoo/home || { echo "Could not create directory."; exit 1; }
+    mkdir -p /mnt/root || { echo "Could not create directory."; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name || { echo "Failed to format encrypted root partition."; exit 1; }
-    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root || { echo "Failed to mount root."; exit 1; }
+    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/ || { echo "Failed to mount root."; exit 1; }
 
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
 
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo || exit
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home || exit
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/ || exit
+    mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/ || exit
 
-    mount "${sel_disk}1" /mnt/gentoo/efi || { echo "Failed to mount EFI partition."; exit 1; }
+    mkdir -p /mnt/gentoo/efi/ || { echo "Failed to create /mnt/gentoo/efi."; exit 1; }
+    mount "${sel_disk}1" /mnt/gentoo/efi/ || { echo "Failed to mount EFI partition."; exit 1; }
     echo "Disk $sel_disk configured with boot (EFI), encrypted root, and home partitions."
 }
 
