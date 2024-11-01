@@ -61,6 +61,7 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
 
+    mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/ || exit
     mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/ || exit
