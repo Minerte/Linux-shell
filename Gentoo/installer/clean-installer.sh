@@ -72,10 +72,10 @@ function setup_partitions() {
 
 # Download and verify gentoo stage file
 # And some basic system config
-function download_and_verify () {
+function download_and_verify() {
     echo "Downloading stage file"
-    wget -q URL
-    wget -q URL .asc
+    wget -q URL || { echo "could not fetch stage file"; exit 1;}
+    wget -q URL.asc || { echo "could not fetch stage file.asc "; exit 1;}
 
     echo "Verifying downloaded stage file"
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
@@ -97,13 +97,14 @@ function download_and_verify () {
     echo "Gentoo stage file setup done"
 }
 
-function configure_system ()  {
+function configure_system()  {
     local sel_disk="$1"
     local efi_uuid
     local root_uuid
     efi_uuid=$(find_uuid "${sel_disk}1")
     root_uuid=$(find_uuid "${sel_disk}2")
 
+    ### using EOF
     cat << EOF > ./etc/fstab
     Configuring system files and fstab...
     LABEL=BTROOT  /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
