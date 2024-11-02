@@ -61,10 +61,12 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
 
-    mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/ || exit
+    # The different from main.sh is the order and with 1 mkdir -p /mnt/gento/home
     mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/ || exit
+    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/ || exit
+    
+
 
     mkdir -p /mnt/gentoo/efi/ || { echo "Failed to create /mnt/gentoo/efi."; exit 1; }
     mount "${sel_disk}1" /mnt/gentoo/efi/ || { echo "Failed to mount EFI partition."; exit 1; }
@@ -81,14 +83,14 @@ function download_and_verify() {
     echo "Verifying downloaded stage file"
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
     gpg --verify stage3.tar.xz.asc || { echo "GPG verification failed."; exit 1; }
-    
+
     echo "Starting to extract stage file"
     echo "Extracting to directory /mnt/gentoo"
     tar xpvf stage3.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
     sleep 5
-
     echo "Will now edit locale and set keymaps to sv-latin1"
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
+    # If dualboot uncomment below
     # sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
     sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" ./etc/conf.d/keymaps
 
@@ -98,6 +100,7 @@ function download_and_verify() {
     echo "Gentoo stage file setup done"
 }
 
+# Edit fstab and grub
 function configure_system()  {
     local sel_disk="$1"
     local efi_uuid
@@ -123,6 +126,7 @@ EOF
 EOF
 }
 
+# Copy over portgae to disk
 function configure_portage() {
     echo "Setting up Portage..."
     mkdir -p /mnt/gentoo/etc/portage/repos.conf
@@ -157,8 +161,7 @@ function setup_chroot() {
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
 
-    chroot /mnt/gentoo /bin/bash
-    # shellcheck disable=SC1091
+    chroot /mnt/gentoo /bin/bash || { echo "Failed to chroot"; exit 1; }
     source /etc/profile
     export PS1="(chroot) ${PS1}"
 
@@ -167,7 +170,6 @@ function setup_chroot() {
     emerge --config sys-libs/timezone-data
 
     locale-gen
-    # shellcheck disable=SC1091
     env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
 }
 
