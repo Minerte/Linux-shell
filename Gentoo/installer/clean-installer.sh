@@ -109,14 +109,14 @@ function configure_system()  {
     root_uuid=$(find_uuid "${sel_disk}2")
 
     ### using EOF
-    cat << EOF > ./etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
+    cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
     Configuring system files and fstab...
-    LABEL=BTROOT  /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
-    LABEL=BTROOT  /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0
-    UUID=$efi_uuid    /efi    vfat    umask=077   0 2
+    LABEL=BTROOT    /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
+    LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0
+    UUID=$efi_uuid  /efi    vfat    umask=077   0 2
 EOF
     ###  Using EOF
-    cat << EOF > ./etc/default/grub || { echo "Failed to edit grub with EOF"; exit 1;}
+    cat << EOF > /mnt/gentoo/etc/default/grub || { echo "Failed to edit grub with EOF"; exit 1;}
     #GRUB settings
     GRUB_CMDLINE_LINUX_DEFAULT="crypt_root=UUID=$root_uuid quiet"
     GRUB_DISABLE_LINUX_PARTUUID=false
@@ -131,7 +131,7 @@ function configure_portage() {
     echo "Setting up Portage..."
     mkdir -p /mnt/gentoo/etc/portage/repos.conf
     cp /usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
-    cp /etc/resolv.conf /mnt/gentoo/etc/
+    cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
     sleep 3
 
     # Copy custom portage configuration files
