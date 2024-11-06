@@ -83,10 +83,11 @@ function download_and_verify() {
 
     echo "Starting to extract stage file"
     echo "Extracting to directory /mnt/gentoo"
+    sleep 5
     tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
-    sleep 10
 
     echo "Will now edit locale and set keymaps to sv-latin1"
+    sleep 5
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
     # If dualboot uncomment below
     # sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
@@ -108,14 +109,14 @@ function configure_system()  {
     root_uuid=$(find_uuid "${sel_disk}2")
 
     ### using EOF
-    cat << EOF > ./etc/fstab
+    cat << EOF > ./etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
     Configuring system files and fstab...
     LABEL=BTROOT  /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
     LABEL=BTROOT  /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0
     UUID=$efi_uuid    /efi    vfat    umask=077   0 2
 EOF
     ###  Using EOF
-    cat << EOF > ./etc/default/grub
+    cat << EOF > ./etc/default/grub || { echo "Failed to edit grub with EOF"; exit 1;}
     #GRUB settings
     GRUB_CMDLINE_LINUX_DEFAULT="crypt_root=UUID=$root_uuid quiet"
     GRUB_DISABLE_LINUX_PARTUUID=false
@@ -131,23 +132,26 @@ function configure_portage() {
     mkdir -p /mnt/gentoo/etc/portage/repos.conf
     cp /usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
     cp /etc/resolv.conf /mnt/gentoo/etc/
+    sleep 3
 
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
-    cp cp ~/root/Linux-bash-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+    cp cp ~/root/Linux-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
+    cp ~/root/Linux-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
+    cp ~/root/Linux-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
     echo "copinging over make.conf and no-lto and env variable successully"
+    sleep 3
     # Copy custom portage for package.use
-    cp ~/root/Linux-bash-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-bash-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
+    cp ~/root/Linux-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
     echo "copinging over package.use successully"
+    sleep 3
     # Copy custom portage for package.accept_keywords
-    cp ~/root/Linux-bash-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
+    cp ~/root/Linux-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
     echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
 }
@@ -162,6 +166,7 @@ function setup_chroot() {
     mount --make-rslave /mnt/gentoo/dev
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
+    sleep 3
 
     chroot /mnt/gentoo /bin/bash || { echo "Failed to chroot"; exit 1; }
     # shellcheck disable=SC1091
@@ -182,7 +187,6 @@ function in_chroot() {
     # shellcheck disable=SC2154
     sed -i "s/CPU_FLAGS_X86=\"cpuid2cpuflags\"/CPU_FLAGS_X86=\"$cpuid2cpuflags\"/" /etc/portage/make.conf
     nano /etc/portage/make.conf || { echo "Could not open nano"; exit 1; }
-
 }
 
 function setup_kernel() {
