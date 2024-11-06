@@ -47,6 +47,7 @@ function setup_partitions() {
         set 1 boot on || { echo "Partitioning failed."; exit 1; }
 
     mkfs.vfat -F 32 "${sel_disk}1" || { echo "Failed to format boot partition."; exit 1; }
+    sleep 5
 
     echo "Setting up disk encryption for root partition."
     cryptsetup luksFormat -s 512 -c aes-xts-plain64 "${sel_disk}2" || { echo "Encryption setup failed."; exit 1; }
@@ -54,7 +55,9 @@ function setup_partitions() {
 
     mkdir -p /mnt/root || { echo "Could not create directory."; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/$crypt_name || { echo "Failed to format encrypted root partition."; exit 1; }
+    sleep 5
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/$crypt_name /mnt/root/ || { echo "Failed to mount root."; exit 1; }
+    sleep 5
 
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
@@ -136,22 +139,12 @@ function configure_portage() {
 
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
-    cp /root/Linux-shell-main/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
-    cp /root/Linux-shell-main/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
-    cp /root/Linux-shell-main/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
-    echo "copinging over make.conf and no-lto and env variable successully"
-    sleep 3
-    # Copy custom portage for package.use
-    cp /root/Linux-shell-main/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell-main/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell-main/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell-main/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell-main/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell-main/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
-    echo "copinging over package.use successully"
-    sleep 3
-    # Copy custom portage for package.accept_keywords
-    cp /root/Linux-shell-main/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
+    mv ~/Linux-shell-main/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
+    mv ~/Linux-shell-main/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
+    mv ~/Linux-shell-main/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+
+    mv ~/Linux-shell-main/Gentoo/portage/package.use/* /mnt/gentoo/etc/portage/package.use/
+    mv ~root/Linux-shell-main/Gentoo/portage/package.accept_keywords/* /mnt/gentoo/etc/portage/package.accept_keywords/
     echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
 }
