@@ -136,22 +136,22 @@ function configure_portage() {
 
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
-    cp /root/Linux-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
-    cp /root/Linux-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
-    cp /root/Linux-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+    cp /root/Linux-shell-main/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
+    cp /root/Linux-shell-main/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
+    cp /root/Linux-shell-main/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
     echo "copinging over make.conf and no-lto and env variable successully"
     sleep 3
     # Copy custom portage for package.use
-    cp /root/Linux-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
-    cp /root/Linux-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell-main/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
     echo "copinging over package.use successully"
     sleep 3
     # Copy custom portage for package.accept_keywords
-    cp /root/Linux-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
+    cp /root/Linux-shell-main/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
     echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
 }
@@ -168,7 +168,7 @@ function setup_chroot() {
     mount --make-slave /mnt/gentoo/run
     sleep 3
     echo "Coping over chroot.sh into chroot"
-    cp /root/Linux-shell/Gentoo/installer/chroot.sh /mnt/gentoo/root/
+    cp /root/Linux-shell-main/Gentoo/installer/chroot.sh /mnt/gentoo/
     echo "everything is mounted and ready to chroot"
     echo "User need to run command manually"
     echo "Command: chroot /mnt/gentoo /bin/bash"
