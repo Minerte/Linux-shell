@@ -79,11 +79,11 @@ function download_and_verify() {
 
     echo "Verifying downloaded stage file"
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
-    gpg --verify stage3.tar.xz.asc || { echo "GPG verification failed."; exit 1; }
+    gpg --verify stage3-*.tar.xz.asc || { echo "GPG verification failed."; exit 1; }
 
     echo "Starting to extract stage file"
     echo "Extracting to directory /mnt/gentoo"
-    tar xpvf stage3.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
+    tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
     sleep 10
 
     echo "Will now edit locale and set keymaps to sv-latin1"
