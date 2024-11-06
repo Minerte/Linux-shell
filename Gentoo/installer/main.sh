@@ -61,6 +61,7 @@ function setup_partitions() {
 
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
+    sleep 3
 
     mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/ || exit
@@ -91,14 +92,14 @@ function download_and_verify() {
 
     echo "Will now edit locale and set keymaps to sv-latin1"
     sleep 5
-    sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
+    sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" /mnt/gentoo/etc/locale.gen
     # If dualboot uncomment below
     # sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
-    sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" ./etc/conf.d/keymaps
-    echo 'LANG="en_US.UTF-8"' >> ./etc/locale.conf
-    echo 'LC_COLLATE="C.UTF-8"' >> ./etc/locale.conf
-    echo "Europe/Stockholm" > ./etc/timezone
-
+    sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" /mnt/gentoo/etc/conf.d/keymaps
+    echo 'LANG="en_US.UTF-8"' >> /mnt/gentoo/etc/locale.conf
+    echo 'LC_COLLATE="C.UTF-8"' >> /mnt/gentoo/etc/locale.conf
+    echo "Europe/Stockholm" > /mnt/gentoo/etc/timezone
+    
     echo "Gentoo stage file setup done"
     echo "Successfully"
 }
