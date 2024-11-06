@@ -167,6 +167,8 @@ function setup_chroot() {
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
     sleep 3
+    echo "Coping over chroot.sh into chroot"
+    cp /root/Linux-shell/Gentoo/installer/chroot.sh /mnt/gentoo/root/
     echo "everything is mounted and ready to chroot"
     echo "User need to run command manually"
     echo "Command: chroot /mnt/gentoo /bin/bash"
