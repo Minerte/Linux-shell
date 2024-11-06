@@ -83,7 +83,7 @@ function download_and_verify() {
 
     echo "Starting to extract stage file"
     echo "Extracting to directory /mnt/gentoo"
-    sleep 5
+    sleep 20
     tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
 
     echo "Will now edit locale and set keymaps to sv-latin1"
@@ -110,19 +110,19 @@ function configure_system()  {
 
     ### using EOF
     cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
-    Configuring system files and fstab...
-    LABEL=BTROOT    /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
-    LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0
-    UUID=$efi_uuid  /efi    vfat    umask=077   0 2
+#Configuring system files and fstab...
+LABEL=BTROOT    /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot 0 0
+LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=lzo,subvol=home       0 0
+UUID=$efi_uuid  /efi    vfat    umask=077   0 2
 EOF
     ###  Using EOF
     cat << EOF > /mnt/gentoo/etc/default/grub || { echo "Failed to edit grub with EOF"; exit 1;}
-    #GRUB settings
-    GRUB_CMDLINE_LINUX_DEFAULT="crypt_root=UUID=$root_uuid quiet"
-    GRUB_DISABLE_LINUX_PARTUUID=false
-    GRUB_DISTBIUTOR="Gentoo"
-    GRUB_TIMEOUT=3
-    GRUB_ENABLE_CRYPTODISK=y
+#GRUB settings
+GRUB_CMDLINE_LINUX_DEFAULT="crypt_root=UUID=$root_uuid quiet"
+GRUB_DISABLE_LINUX_PARTUUID=false
+GRUB_DISTBIUTOR="Gentoo"
+GRUB_TIMEOUT=3
+GRUB_ENABLE_CRYPTODISK=y
 EOF
 }
 
@@ -137,21 +137,21 @@ function configure_portage() {
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
     cp cp ~/root/Linux-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
-    cp ~/root/Linux-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
-    cp ~/root/Linux-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+    cp /root/Linux-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
+    cp /root/Linux-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
     echo "copinging over make.conf and no-lto and env variable successully"
     sleep 3
     # Copy custom portage for package.use
-    cp ~/root/Linux-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-shell/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
-    cp ~/root/Linux-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/Network /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
+    cp /root/Linux-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
     echo "copinging over package.use successully"
     sleep 3
     # Copy custom portage for package.accept_keywords
-    cp ~/root/Linux-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
+    cp /root/Linux-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
     echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
 }
@@ -167,32 +167,10 @@ function setup_chroot() {
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
     sleep 3
-
-    chroot /mnt/gentoo /bin/bash || { echo "Failed to chroot"; exit 1; }
-    # shellcheck disable=SC1091
-    source /etc/profile
-    export PS1="(chroot) ${PS1}"
-
-    emerge-webrsync
-    emerge --sync --quiet
-    emerge --config sys-libs/timezone-data
-
-    locale-gen
-    env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
-}
-
-function in_chroot() {
-    echo "Update make.conf with cpuid2cpuflags "
-    emerge --ask app-portage/cpuid2cpuflags
-    # shellcheck disable=SC2154
-    sed -i "s/CPU_FLAGS_X86=\"cpuid2cpuflags\"/CPU_FLAGS_X86=\"$cpuid2cpuflags\"/" /etc/portage/make.conf
-    nano /etc/portage/make.conf || { echo "Could not open nano"; exit 1; }
-}
-
-function setup_kernel() {
-    echo "time for kernel config"
-    eselect kernel set 1
-    genkernel --luks --btrfs --keymap --oldconfig --save-config --menuconfig --install all
+    echo "everything is mounted and ready to chroot"
+    echo "User need to run command manually"
+    echo "Command: chroot /mnt/gentoo /bin/bash"
+    echo "After executing command dont forget to execute chroot.sh if you want autoinstall"
 }
 
 list_disks
@@ -209,6 +187,3 @@ download_and_verify
 configure_system "$selected_disk"
 configure_portage
 setup_chroot
-in_chroot
-
-setup_kernel
