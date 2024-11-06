@@ -136,7 +136,7 @@ function configure_portage() {
 
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
-    cp cp ~/root/Linux-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
+    cp /root/Linux-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
     cp /root/Linux-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
     cp /root/Linux-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
     echo "copinging over make.conf and no-lto and env variable successully"
