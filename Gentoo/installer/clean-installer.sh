@@ -40,8 +40,6 @@ function setup_partitions() {
         exit 0
     fi
 
-    rm -rf /mnt/gentoo || { echo "Failed to remove /mnt/gentoo."; exit 1; }
-
     echo "Formatting disk $sel_disk and creating partitions..."
     parted --script "$sel_disk" mklabel gpt \
         mkpart primary fat32 0% "${boot_size}G" \
@@ -61,24 +59,23 @@ function setup_partitions() {
     btrfs subvolume create /mnt/root/activeroot || exit
     btrfs subvolume create /mnt/root/home || exit
 
-    # The different from main.sh is the order and with 1 mkdir -p /mnt/gento/home
     mkdir -p /mnt/gentoo/home/ || { echo "Failed to create /mnt/gentoo/home/."; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/$crypt_name /mnt/gentoo/home/ || exit
     mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/$crypt_name /mnt/gentoo/ || exit
-    
-
 
     mkdir -p /mnt/gentoo/efi/ || { echo "Failed to create /mnt/gentoo/efi."; exit 1; }
     mount "${sel_disk}1" /mnt/gentoo/efi/ || { echo "Failed to mount EFI partition."; exit 1; }
+
     echo "Disk $sel_disk configured with boot (EFI), encrypted root, and home partitions."
+    echo "Successfully"
 }
 
 # Download and verify gentoo stage file
 # And some basic system config
 function download_and_verify() {
     echo "Downloading stage file"
-    wget -q URL || { echo "could not fetch stage file"; exit 1;}
-    wget -q URL.asc || { echo "could not fetch stage file.asc "; exit 1;}
+    wget -q https://distfiles.gentoo.org/releases/amd64/autobuilds/20241103T164822Z/stage3-amd64-hardened-openrc-20241103T164822Z.tar.xz || { echo "Could not fetch stage file"; exit 1;}
+    wget -q https://distfiles.gentoo.org/releases/amd64/autobuilds/20241103T164822Z/stage3-amd64-hardened-openrc-20241103T164822Z.tar.xz.asc || { echo "Could not fetch stage file.asc "; exit 1;}
 
     echo "Verifying downloaded stage file"
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
@@ -87,17 +84,19 @@ function download_and_verify() {
     echo "Starting to extract stage file"
     echo "Extracting to directory /mnt/gentoo"
     tar xpvf stage3.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract stage file."; exit 1; }
-    sleep 5
+    sleep 10
+
     echo "Will now edit locale and set keymaps to sv-latin1"
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" ./etc/locale.gen
     # If dualboot uncomment below
     # sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
     sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" ./etc/conf.d/keymaps
-
     echo 'LANG="en_US.UTF-8"' >> ./etc/locale.conf
     echo 'LC_COLLATE="C.UTF-8"' >> ./etc/locale.conf
     echo "Europe/Stockholm" > ./etc/timezone
+
     echo "Gentoo stage file setup done"
+    echo "Successfully"
 }
 
 # Edit fstab and grub
@@ -138,6 +137,7 @@ function configure_portage() {
     cp cp ~/root/Linux-bash-shell/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
     cp ~/root/Linux-bash-shell/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
     cp ~/root/Linux-bash-shell/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+    echo "copinging over make.conf and no-lto and env variable successully"
     # Copy custom portage for package.use
     cp ~/root/Linux-bash-shell/Gentoo/portage/Kernel /mnt/gentoo/etc/portage/package.use/
     cp ~/root/Linux-bash-shell/Gentoo/portage/Lua /mnt/gentoo/etc/portage/package.use/
@@ -145,8 +145,10 @@ function configure_portage() {
     cp ~/root/Linux-bash-shell/Gentoo/portage/Rust /mnt/gentoo/etc/portage/package.use/
     cp ~/root/Linux-bash-shell/Gentoo/portage/app-alternatives /mnt/gentoo/etc/portage/package.use/
     cp ~/root/Linux-bash-shell/Gentoo/portage/system-core /mnt/gentoo/etc/portage/package.use/
+    echo "copinging over package.use successully"
     # Copy custom portage for package.accept_keywords
     cp ~/root/Linux-bash-shell/Gentoo/portage/tui /mnt/gentoo/etc/portage/package.accept_keywords/
+    echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
 }
 
@@ -162,6 +164,7 @@ function setup_chroot() {
     mount --make-slave /mnt/gentoo/run
 
     chroot /mnt/gentoo /bin/bash || { echo "Failed to chroot"; exit 1; }
+    # shellcheck disable=SC1091
     source /etc/profile
     export PS1="(chroot) ${PS1}"
 
@@ -171,6 +174,21 @@ function setup_chroot() {
 
     locale-gen
     env-update && source /etc/profile && export PS1="(chroot) ${PS1}"
+}
+
+function in_chroot() {
+    echo "Update make.conf with cpuid2cpuflags "
+    emerge --ask app-portage/cpuid2cpuflags
+    # shellcheck disable=SC2154
+    sed -i "s/CPU_FLAGS_X86=\"cpuid2cpuflags\"/CPU_FLAGS_X86=\"$cpuid2cpuflags\"/" /etc/portage/make.conf
+    nano /etc/portage/make.conf || { echo "Could not open nano"; exit 1; }
+
+}
+
+function setup_kernel() {
+    echo "time for kernel config"
+    eselect kernel set 1
+    genkernel --luks --btrfs --keymap --oldconfig --save-config --menuconfig --install all
 }
 
 list_disks
@@ -187,3 +205,6 @@ download_and_verify
 configure_system "$selected_disk"
 configure_portage
 setup_chroot
+in_chroot
+
+setup_kernel
