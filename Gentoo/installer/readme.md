@@ -1,5 +1,5 @@
 ## the partition needs to look like this:
-
+```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
 └── /dev/sda2      [BOOTX] /boot     1 GB         ext4        Bootloader support files, kernel and initramfs
@@ -8,6 +8,7 @@
  └── /dev/nvme0n1p1 [ROOT]  (root)    ->END        luks        Encrypted root device, mapped to the name 'root'
       └──  /dev/mapper/root /         ->END        btrfs       root filesystem
                             /home     subvolume                Subvolume created for the home directory
+```
 
 ### formation the disk 
 
