@@ -10,18 +10,19 @@
       └──  /dev/mapper/root /         ->END        btrfs       root filesystem
                             /home     subvolume                Subvolume created for the home directory
 ```
+## the cryptsetup needs to do:
+```
+cryptsetup luksFormat --header /media/sda2/luks_header.img /dev/nvme0n1p1
 
-### formation the disk 
+cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1
+```
 
-# o the cryptsetup needs to do:
-$ cryptsetup luksFormat --header /media/sda2/luks_header.img /dev/nvme0n1p1
-
-$ cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1
-
-$ mkfifo key_pipe
-$ gpg --decrypt key_file > key_pipe &
-$ cryptsetup luksAddkey --keyfile key_pipe /dev/nvme0n1p1
-$ rm key_pipe
+```
+mkfifo key_pipe
+gpg --decrypt key_file > key_pipe &
+cryptsetup luksAddkey --keyfile key_pipe /dev/nvme0n1p1
+rm key_pipe
+```
 
 # GPG symmetrically encrypted key file
 ## IMPORTANT:
@@ -36,7 +37,9 @@ dd  bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --
 ```
 
 **luksformat  using gpg protected key file**
-/media/sda2/ $ gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1 -
+```
+gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1 -
+```
 
 **once the file are created**
 ```
