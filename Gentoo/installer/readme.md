@@ -1,3 +1,5 @@
+For more detils pls follow this link: [Gentoo wiki Full Disk Encryption From Scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch)
+
 # For use with encrypt-gpg.sh
 **The partition needs/will to look like this:**
 ```
