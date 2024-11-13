@@ -35,7 +35,7 @@ $ export GPG_TTY=$(tty)
 GPG Asymmetrically Encrypted Key File
 A key file can be protected using public key cryptography using a smartcard such as a YubiKey. This YubiKey GPG guide can be used to generate GPG keys on a YubiKey. With the public keys loaded, keys can be encrypted with the key holder as the recipient:
 
-/media/sda2/ $ dd bs=8388608 count=1 if=/dev/urandom | gpg --recipient domain/mail --output crypt_key.luks.gpg --encrypt
+/media/sda2/ $ dd bs=8388608 count=1 if=/dev/urandom | gpg --recipient "domain/mail" --output crypt_key.luks.gpg --encrypt
 # !!!
 # USE THIS IF USER WANT TO USE "smartcard" solution
 
