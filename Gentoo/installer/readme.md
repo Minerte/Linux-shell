@@ -72,7 +72,7 @@ note : this command will open /dev/nvme0n1p1 and map it under /dev/mapper/ with 
 mkfs .vfat -F32 /dev/sda1 # EFI partition
 mkfs.ext4 -L boot /dev/sda2 # encryption key
 ```
-**creating rootfs to /dev/nvme0n1p1
+**creating rootfs to /dev/nvme0n1p1**
 ```
 mkfs.btrfs -L rootfs /dev/mapper/root 
 ```
