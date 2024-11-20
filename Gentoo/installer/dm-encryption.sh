@@ -162,11 +162,14 @@ function setup_chroot() {
     mount --make-slave /mnt/gentoo/run
     sleep 3
     echo "Coping over chroot.sh into chroot"
-    cp /root/Linux-shell-main/Gentoo/installer/chroot.sh /mnt/gentoo/
+    cp /root/Linux-shell-main/Gentoo/installer/chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+    chmod +x /mnt/gentoo/chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
     echo "everything is mounted and ready to chroot"
-    echo "User need to run command manually"
-    echo "Command: chroot /mnt/gentoo /bin/bash"
-    echo "After executing command dont forget to execute chroot.sh if you want autoinstall"
+    echo "chrooting will be in 10 sec"
+    echo "After the chroot is done it will be in another"
+    echo "Bash session"
+    sleep 10
+    chroot /mnt/gentoo /bin/bash -c "./chroot.sh" || { echo "failed to chroot"; exit 1; }
 }
 
 list_disks
