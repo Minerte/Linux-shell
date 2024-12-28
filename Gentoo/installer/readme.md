@@ -41,7 +41,7 @@ dd  bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --
 
 **luksformat  using gpg protected key file**
 ```
-gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1 -
+gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1 -gpg: AES256.CFB encrypted data
 ```
 
 **once the file are created**
