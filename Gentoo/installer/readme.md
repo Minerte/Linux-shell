@@ -51,7 +51,7 @@ read -s -r -p 'LUKS passphrase: ' CRYPT_PASS; echo "$CRYPT_PASS" > cryptsetup_pa
 ```
 **using cat to pass on information to cryptsetup**
 ```
-cat cryptsetup_pass crypt_key | cryptsetup luksAddKey /dev/nvme0n1p1 -
+cat cryptsetup_pass crypt_key | cryptsetup luksAddKey /dev/nvme0n1p1 -gpg: AES256.CFB encrypted data
 ```
 
 **now you can exit and be at directory / instead of /media/sda2**
