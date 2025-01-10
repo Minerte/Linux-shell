@@ -17,7 +17,6 @@ and a guide for the autoscript if somethings go wrong and for trubelshoot.
 ## the cryptsetup needs to do:
 ```
 cryptsetup luksFormat --header /media/sda2/luks_header.img /dev/nvme0n1p1
-cryptsetup luksFormat --key-size 512 /dev/nvme0n1p1
 ```
 
 ```
