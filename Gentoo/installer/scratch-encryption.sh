@@ -268,7 +268,7 @@ read -r -p "so it will prompt two times for disk selection, Please read the prom
 read -r -p "Enter the disk you want to partition and format for Boot (e.g., /dev/sda): " selected_disk_Boot
 read -r -p "Enter the disk you want to partition and format for Root/swap(e.g., /dev/sda): " selected_disk
 validate_block_device "$selected_disk" "$selected_disk_Boot"
-setup_partition "$selected_disk" "$selected_disk_Boot"
+setup_disk "$selected_disk" "$selected_disk_Boot"
 move_encryption
 Download_stage3file
 config_system
