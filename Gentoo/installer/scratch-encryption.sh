@@ -77,25 +77,33 @@ w # write to disk
 q # exit
 EOF
     # Prep for boot disk
-    mkfs.vfat -F32 "${sel_disk_boot}1"
-    mkfs.ext4 "${sel_disk_boot}2"
-    mkdir -p /media/extern-usb || { echo "Failed to create directory in /media/..."; exit 1; }
-    mount "${sel_disk_boot}2" /media/extern-usb || { echo "Failed to mount ${sel_disk_boot}2 to /media/extern-usb"; exit 1; }
+    mkfs.vfat -F32 "${sel_disk_boot}1" || { echo "Failed to make vfat"; exit 1; }
+    mkfs.ext4 "${sel_disk_boot}2" || { echo "Failed to make ext 4"; exit 1; }
+    mkdir -p /media/external-usb || { echo "Failed to make directory /media/extern-usb"; exit 1; }
+    mkdir --parents /media/boot-drive || { echo "Failed /media/boot-drive"; exit 1; }
+    mkdir -p /media/boot-drive/efi || { echo "Failed"; exit 1; }
+    mount "${sel_disk_boot}2" /media/external-usb || { echo "Failed to mount ${sel_disk_boot}2 to /media/extern-usb"; exit 1; }
+    mount "${sel_disk_boot}1" /media/boot-drive || { echo "Failed to mount ${sel_disk_boot}1 to /media/boot-drive"; exit 1; }
 
     # SETUP MAIN DISK FOR USABLE DRIVE
     # Encrypting swap parition
-    cryptsetup open --type plain --cipher aes-xts-plain64 --key-size 512 --key-file /dev/urandom "${sel_disk}1" cryptswap || { echo "Failed to encypt swap partition"; exit 1; }
+    cryptsetup open --type plain --cipher aes-xts-plain64 --key-size 512 --key-file /dev/urandom "${sel_disk}1" cryptswap || { echo "Failed to encrypt swap partition"; exit 1; }
     mkswap /dev/mapper/cryptswap || { echo "Failed to create swap"; exit 1; }
     swapon /dev/mapper/cryptswap || { echo "Failed to swapon"; exit 1; }
 
     # Making keyfile
-    gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --header /media/extern-usb/luks_header.img --key-file - --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
-    cryptsetup luksHeaderBackup "${sel_disk}2" --header-backup-file crypt_headers.img || { echo "Failed to make a LuksHeader backup"; exit 1;}
-    gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "Failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
+    cryptsetup luksFormat --header /media/extern-usb/luks_header.img "${sel_disk}2"
+    cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
+    export GPG_TTY=$(tty)
+    dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
+    gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
+    cd ~ || { echo "failed to change to root directory"; exit 1; }
+    cryptsetup luksHeaderBackup "${sel_disk}2" --header-backup-file crypt_headers.img || { echo "failed to make a LuksHeader backup"; exit 1;}
+    cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
+    gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
+    cd ~ || { echo "failed to change to root directory"; exit 1; }
 
     # SETUP BOOT DISK
-    mkfs.vfat -F32 "${sel_disk_boot}1"
-    mkfs.ext4 "${sel_disk_boot}2"
 
     # Root partition setup
     mkdir -p /mnt/root || { echo "Failed to create directory"; exit 1; }
