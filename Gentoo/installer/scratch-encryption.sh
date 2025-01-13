@@ -84,8 +84,8 @@ EOF
     # Encrypting swap parition
     cryptsetup open --type plain --cipher aes-xts-plain64 --key-size 512 --key-file /dev/urandom "${sel_disk}1" cryptswap
 
-    mkswap "{$sel_disk}1" || { echo "Failed to create swap"; exit 1; }
-    swapon "{$sel_disk}1" || { echo "Failed to swapon"; exit 1; }
+    mkswap /dev/mapper/cryptswap || { echo "Failed to create swap"; exit 1; }
+    swapon /dev/mapper/cryptswap || { echo "Failed to swapon"; exit 1; }
 
     # Making keyfile
     cryptsetup luksFormat --header /media/extern-usb/luks_header.img "${sel_disk}2"
