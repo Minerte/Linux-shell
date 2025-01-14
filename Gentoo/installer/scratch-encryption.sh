@@ -92,7 +92,6 @@ EOF
     swapon /dev/mapper/cryptswap || { echo "Failed to swapon"; exit 1; }
 
     # Making keyfile
-    cryptsetup luksFormat --header /media/external-usb/luks_header.img "${sel_disk}2"
     cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
     # Passphrase to keyfile
     mkfifo crypt_key || { echo "failed to mkfifo crypt_key"; exit 1;}
@@ -107,7 +106,7 @@ EOF
     gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
     gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
     cd ~ || { echo "failed to change to root directory"; exit 1; }
-
+    cryptsetup luksFormat --header /media/external-usb/luks_header.img "${sel_disk}2"
     # SETUP BOOT DISK
 
     # Root partition setup
