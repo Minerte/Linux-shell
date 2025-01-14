@@ -93,25 +93,34 @@ EOF
 
     # Making keyfile
     cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
+    sleep 3
     export GPG_TTY=$(tty) || { echo "Failed to export GPG_tty to current tty"; exit 1; }
+    sleep 10
     dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
+    sleep 10
+    gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 --header /media/external-usb "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
+    sleep 10
     # Passphrase to keyfile
     mkfifo crypt_key || { echo "failed to mkfifo crypt_key"; exit 1;}
+    sleep 10
     mkfifo cryptsetup_pass || { echo "failed to mkfifo cryptsetup_pass"; exit 1;}
+    sleep 10
     gpg --decrypt crypt_key.luks.gpg > crypt_key &
+    sleep 10
     read -s -r -p 'LUKS passphrase: ' CRYPT_PASS; echo "$CRYPT_PASS" > cryptsetup_pass &
+    sleep 10
+    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2" || { echo "failed to cat crypt_key cryptsetup to add new key to ${sel_disk}2"; exit 1;}
+    sleep 10
     # last in setup_disk funtion to remove key_pipe copy of key
     # rm key_pipe
-    gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
     gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
+    sleep 10
     cd ~ || { echo "failed to change to root directory"; exit 1; }
-    cryptsetup luksFormat --header /media/external-usb/luks_header.img "${sel_disk}2"
     # SETUP BOOT DISK
 
     # Root partition setup
     mkdir -p /mnt/root || { echo "Failed to create directory"; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
-    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2" || { echo "failed to cat crypt_key cryptsetup to add new key to ${sel_disk}2"; exit 1;}
     cryptsetup luksHeaderBackup "${sel_disk}2" --header-backup-file crypt_headers.img || { echo "failed to make a LuksHeader backup"; exit 1;}
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root
 
