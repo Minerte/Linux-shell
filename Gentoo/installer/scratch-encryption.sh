@@ -202,7 +202,7 @@ function Download_stage3file () {
     echo "Verifying downloaded stage file"
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
     gpg --verify stage3-*.tar.xz.asc || { echo "GPG verification failed."; exit 1; }
-
+    sleep 5
     echo "extracting stage3 file"
     tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "failed to extract"; exit 1; }
 
@@ -266,9 +266,30 @@ function config_portage () {
     echo "Portage configuration complete."
 }
 
+function setup_chroot() {
+    echo "Setting up chroot environment..."
+    mount --types proc /proc /mnt/gentoo/proc
+    mount --rbind /sys /mnt/gentoo/sys
+    mount --make-rslave /mnt/gentoo/sys
+    mount --rbind /dev /mnt/gentoo/dev
+    mount --make-rslave /mnt/gentoo/dev
+    mount --bind /run /mnt/gentoo/run
+    mount --make-slave /mnt/gentoo/run
+    sleep 3
+    echo "Coping over chroot.sh into chroot"
+    cp /root/Linux-shell-main/Gentoo/installer/scratch.in.chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+    chmod +x /mnt/gentoo/chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
+    echo "everything is mounted and ready to chroot"
+    echo "chrooting will be in 10 sec"
+    echo "After the chroot is done it will be in another"
+    echo "Bash session"
+    sleep 10
+    chroot /mnt/gentoo /bin/bash -c "./scratch-in-chroot.sh" || { echo "failed to chroot"; exit 1; }
+}
+
 list_disks
-read -r -p "Note: In this script the boot and boot partition and keyfile will be on another disk"
-read -r -p "so it will prompt two times for disk selection, Please read the prompt correctly!"
+echo "Note: In this script the boot and boot partition and keyfile will be on another disk"
+echo "so it will prompt two times for disk selection, Please read the prompt correctly!"
 read -r -p "Enter the disk you want to partition and format for Boot (e.g., /dev/sda): " selected_disk_Boot
 read -r -p "Enter the disk you want to partition and format for Root/swap(e.g., /dev/sda): " selected_disk
 validate_block_device "$selected_disk" "$selected_disk_Boot"
@@ -277,3 +298,4 @@ move_encryption
 Download_stage3file
 config_system
 config_portage
+setup_chroot
