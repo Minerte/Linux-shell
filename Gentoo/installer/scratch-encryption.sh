@@ -100,7 +100,6 @@ EOF
     mkfifo cryptsetup_pass || { echo "failed to mkfifo cryptsetup_pass"; exit 1;}
     gpg --decrypt crypt_key.luks.gpg > crypt_key &
     read -s -r -p 'LUKS passphrase: ' CRYPT_PASS; echo "$CRYPT_PASS" > cryptsetup_pass &
-    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2" || { echo "failed to cat crypt_key cryptsetup to add new key to ${sel_disk}2"; exit 1;}
     # last in setup_disk funtion to remove key_pipe copy of key
     # rm key_pipe
     gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
@@ -112,6 +111,7 @@ EOF
     # Root partition setup
     mkdir -p /mnt/root || { echo "Failed to create directory"; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
+    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2" || { echo "failed to cat crypt_key cryptsetup to add new key to ${sel_disk}2"; exit 1;}
     cryptsetup luksHeaderBackup "${sel_disk}2" --header-backup-file crypt_headers.img || { echo "failed to make a LuksHeader backup"; exit 1;}
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root
 
