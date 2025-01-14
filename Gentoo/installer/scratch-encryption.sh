@@ -91,12 +91,7 @@ EOF
     mkswap /dev/mapper/cryptswap || { echo "Failed to create swap"; exit 1; }
     swapon /dev/mapper/cryptswap || { echo "Failed to swapon"; exit 1; }
 
-    # Passphrase to keyfile
-    mkfifo key_pipe
-    gpg --decrypt key_file > key_pipe &
-    cryptsetup luksAddKey --key-file key_pipe "${sel_disk}2"
-    # last in setup_disk funtion to remove key_pipe copy of key
-    # rm key_pipe
+
 
     # Making keyfile
     cryptsetup luksFormat --header /media/extern-usb/luks_header.img "${sel_disk}2"
@@ -104,6 +99,14 @@ EOF
     export GPG_TTY=$(tty)
     dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
     gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
+    # Passphrase to keyfile
+    mkfifo crypt_key
+    mkfifo cryptsetup_pass
+    gpg --decrypt crypt_key.luks.gpg > crypt_key & 
+    read -s -r -p 'LUKS passphrase: ' CRYPT_PASS; echo "$CRYPT_PASS" > cryptsetup_pass &
+    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2"
+    # last in setup_disk funtion to remove key_pipe copy of key
+    # rm key_pipe
     gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
     cd ~ || { echo "failed to change to root directory"; exit 1; }
 
