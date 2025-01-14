@@ -95,7 +95,8 @@ EOF
     mkfifo key_pipe
     gpg --decrypt key_file > key_pipe &
     cryptsetup luksAddKey --key-file key_pipe "${sel_disk}2"
-    rm key_pipe
+    # last in setup_disk funtion to remove key_pipe copy of key
+    # rm key_pipe
 
     # Making keyfile
     cryptsetup luksFormat --header /media/extern-usb/luks_header.img "${sel_disk}2"
