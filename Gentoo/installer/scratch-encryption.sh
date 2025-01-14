@@ -93,6 +93,7 @@ EOF
 
     # Making keyfile
     cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
+    dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
     # Passphrase to keyfile
     mkfifo crypt_key || { echo "failed to mkfifo crypt_key"; exit 1;}
     mkfifo cryptsetup_pass || { echo "failed to mkfifo cryptsetup_pass"; exit 1;}
@@ -102,7 +103,6 @@ EOF
     # last in setup_disk funtion to remove key_pipe copy of key
     # rm key_pipe
     export GPG_TTY=$(tty) || { echo "Failed to export GPG_tty to current tty"; exit 1; }
-    dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
     gpg --decrypt crypt_key.luks.gpg | cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
     gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
     cd ~ || { echo "failed to change to root directory"; exit 1; }
