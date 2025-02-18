@@ -1,5 +1,6 @@
-First we need to format the disk to look something like this:
+***How we encrypt the disk with a seperate boot drive and keyfile
 
+First we need to format the disk to look something like this:
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
