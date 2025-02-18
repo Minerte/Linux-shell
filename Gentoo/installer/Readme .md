@@ -6,9 +6,15 @@ First we need to format the disk to look something like this:
 └── /dev/sda2      [BOOTX] /boot     1 GB         ext4        Bootloader support files, kernel and initramfs
 
 /dev/nvme0n1 # root drive
- └── /dev/nvme0n1p1 [ROOT]  (root)    ->END        luks        Encrypted root device, mapped to the name 'root'
-      └──  /dev/mapper/root /         ->END        btrfs       root filesystem
-                            /home     subvolume                Subvolume created for the home directory
+ ├── /dev/nvmeon1p1
+ |    └──  /dev/mapper/cryptswap  SWAP      ->END        SWAP
+ └── /dev/nvme0n1p2 [ROOT]  (root)          ->END        luks        Encrypted root device, mapped to the name 'root'
+      └──  /dev/mapper/cryptroot  /         ->END        btrfs       root filesystem
+                                  /home     subvolume                Subvolume created for the home directory
+                                  /etc      subvolume
+                                  /var      subvolume
+                                  /log      subvolume
+                                  /tmp      subvolume
 ```
 
 but for us we also use swap partition that is encrypted with plain random key.
