@@ -1,7 +1,7 @@
 # This is both a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki
 
-This formation should look like this when we have then the diskpartition.
+The disk will look sometiong like this when we done partitioning.
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
