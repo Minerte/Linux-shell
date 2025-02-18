@@ -19,34 +19,35 @@ The disk will look sometiong like this when we done partitioning.
                                   /tmp      subvolume
 ```
 ### Preping the "boot drive" to be mounted and generate keyfile
-After disk peparation we need to create filsystem for /dev/sda1 and /dev/sda2 (our boot drive) 
+After disk peparation we need to create filsystem for /dev/sda1 and /dev/sda2 (our boot drive).
 ```
 mkfs.vfat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
 ```
-After succefully create filesystem we need to mounnt /dev/sda2 to /media/sda2 so we need to create a mount point in /media/
+**Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
+
+After succefully create a filesystem we need to mounnt /dev/sda2 to /media/sda2 so we need to create a mount point in /media/.
 ```
 mkdir /media/sda2
-```
-And then after the deviceneed to be mounted on /media/sda2
-```
 mount /dev/sda2 /meda/sda2
 ```
 Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Livecd but then you need to change of=/path/to/file.
 ```
 cd /media/sda2
 ```
+
 ### Key generation for SWAP partition
+Here we generate a keyfile, the keyfile of swap should be **16MB**
 ```
-dd if=/dev/urandom of=swap-keyfile bs=8388608 count=2
+dd if=/dev/urandom of=swap-keyfile bs=16777216 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
 ```
-We need to decrypt
+We need to decrypt the gpg file so we can encrypt the swap partition using the keyfil.
 ```
 gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
 cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[swap_partition] --key-file=/tmp/swap-keyfile 
 ```
-Now we can open the disk for modification
+Now we can open the disk for modification.
 ```
 cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/swap-keyfile
 ```
@@ -58,9 +59,9 @@ shred -u /tmp/swap-keyfile
 
 ### Key generation for GPG symmetric keyfile for Root drive
 
-First we need to generate the key and the generation of the keyfile size is **8388608** * **4** so the keyfile size should be 32MB
+First we need to generate the key and the generation of the keyfile, so the keyfile size should be **32MB** with the command
 ```
-dd if=/dev/urandom of=luks-keyfil bs=8388608 count=4
+dd if=/dev/urandom of=luks-keyfil bs=33554432 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
 ```
 
