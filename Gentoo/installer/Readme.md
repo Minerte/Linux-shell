@@ -1,7 +1,7 @@
 # This is both a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki
 
-The disk will look someting like this when we done partitioning.
+The disk will look something like this when we done partitioning.
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -31,6 +31,7 @@ After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2
 mkdir /media/sda2
 mount /dev/sda2 /meda/sda2
 ```
+
 Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Live-cd but then you need to change of=/path/to/file.
 ```
 cd /media/sda2
@@ -42,11 +43,13 @@ Here we generate a keyfile, the keyfile of swap should be **16MB**
 dd if=/dev/urandom of=swap-keyfile bs=16777216 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
 ```
+
 We need to decrypt the gpg file so we can encrypt the swap partition using the keyfil.
 ```
 gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
 cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[swap_partition] --key-file=/tmp/swap-keyfile 
 ```
+
 Now we can open the disk for modification.
 ```
 cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/swap-keyfile
@@ -58,7 +61,6 @@ shred -u /tmp/swap-keyfile
 ```
 
 ### Key generation for GPG symmetric keyfile for Root drive
-
 First we need to generate the key and the generation of the keyfile, so the keyfile size should be **32MB** with the command
 ```
 dd if=/dev/urandom of=luks-keyfil bs=33554432 count=1 # User can change bs= to any number that is higher then 512bytes
@@ -83,3 +85,43 @@ shred -u /tmp/luks-keyfile
 ```
 
 And now you can Change directory back to Livecd root with "cd" and now you should be able to mount all the necessary file system for the root_main_drive
+
+### Now we can start to format the partition for usage
+
+##### For swap:
+```
+mkswap /dev/mapper/cryptswap
+swapon /dev/mapper/cryptswap
+```
+#### For Root:
+```
+mkdir -p /mnt/root
+mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
+mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root
+```
+now we can create sub volumes for btrfs.
+```
+btrfs subvolume create /mnt/root/activeroot
+btrfs subvolume create /mnt/root/home
+btrfs subvolume create /mnt/root/etc
+btrfs subvolume create /mnt/root/var
+btrfs subvolume create /mnt/root/log
+btrfs subvolume create /mnt/root/tmp
+```
+Then we need to create directory for the home, etc, var, log and tmp in directory /mnt/gentoo/.
+```
+mkdir /mnt/gentoo/home
+mkdir /mnt/gentoo/etc
+mkdir /mnt/gentoo/var
+mkdir /mnt/gentoo/log
+mkdir /mnt/gentoo/tmp
+```
+now we can mount the cryptroot subvolumes to /mnt/gentoo/
+```
+mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
+mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/cryptroot /mnt/gentoo/home
+mount -t btrfs -o defaults,noatime,compress=lzo,subvol=etc /dev/mapper/cryptroot /mnt/gentoo/etc
+mount -t btrfs -o defaults,noatime,compress=lzo,subvol=var /dev/mapper/cryptroot /mnt/gentoo/var
+mount -t btrfs -o defaults,noatime,compress=lzo,subvol=log /dev/mapper/cryptroot /mnt/gentoo/log
+mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /dev/mapper/cryptroot /mnt/gentoo/tmp
+```
