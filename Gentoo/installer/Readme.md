@@ -1,7 +1,7 @@
 # This is both a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki
 
-The disk will look sometiong like this when we done partitioning.
+The disk will look someting like this when we done partitioning.
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -18,20 +18,20 @@ The disk will look sometiong like this when we done partitioning.
                                   /log      subvolume
                                   /tmp      subvolume
 ```
-### Preping the "boot drive" to be mounted and generate keyfile
-After disk peparation we need to create filsystem for /dev/sda1 and /dev/sda2 (our boot drive).
+### Preparing the "boot drive" to be mounted and generate keyfile
+After disk preparation we need to create filesystem for /dev/sda1 and /dev/sda2 (our boot drive).
 ```
 mkfs.vfat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
 ```
 **Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
 
-After succefully create a filesystem we need to mounnt /dev/sda2 to /media/sda2 so we need to create a mount point in /media/.
+After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2 so we need to create a mount point in /media/.
 ```
 mkdir /media/sda2
 mount /dev/sda2 /meda/sda2
 ```
-Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Livecd but then you need to change of=/path/to/file.
+Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Live-cd but then you need to change of=/path/to/file.
 ```
 cd /media/sda2
 ```
@@ -51,7 +51,7 @@ Now we can open the disk for modification.
 ```
 cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/swap-keyfile
 ```
-And then you might want to securly remove the **swap-keyfile** with the command:
+And then you might want to securely remove the **swap-keyfile** with the command:
 #### Caution do not delete the swap-keyfile in /media/sda2!
 ```
 shred -u /tmp/swap-keyfile
@@ -76,10 +76,10 @@ After that we can open the drive with **cryptsetyp** and in this case we have no
 cryptsetup open /dev/[root_partition] cryptroot --key-file=/tmp/luks-keyfile
 ```
 
-After you have finished with the encrption process you can remove the key file in **/tmp/luks-keyfile**, to securly delete it use:
+After you have finished with the encryption process you can remove the key file in **/tmp/luks-keyfile**, to securely delete it use:
 #### Caution do not delete the luks-keyfile in /media/sda2!
 ```
 shred -u /tmp/luks-keyfile
 ```
 
-And now you can Change directrory back to Livecd root with "cd" and now you should be able to mount all the neccsary file system for the root_main_drive
+And now you can Change directory back to Livecd root with "cd" and now you should be able to mount all the necessary file system for the root_main_drive
