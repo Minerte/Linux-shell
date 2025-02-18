@@ -1,7 +1,7 @@
 # This is both a guide and what the autoscript is doing
-### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch)
+### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki
 
-First we need to format the disk to look something like this:
+This formation should look like this when we have then the diskpartition.
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -18,10 +18,8 @@ First we need to format the disk to look something like this:
                                   /log      subvolume
                                   /tmp      subvolume
 ```
-
 but for us we also use swap partition that is encrypted with plain random key.
 After disk peparation we need to create filsystem for /dev/sda1 and /dev/sda2 (our boot drive) 
-
 ```
 mkfs.vfat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
@@ -38,9 +36,19 @@ Now we need to co to the directory to genereate a random keyfile to use.
 ```
 cd /media/sda2
 ```
-Key generation for GPG symmetric keyfile
+### Key generation for SWAP partition
 ```
-dd if=/dev/urandom of=luks-keyfil bs=8388608 count=1
+dd if=/dev/urandom of=swap-keyfile bs=8388608 count=2
+gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
+```
+We need to decrypt
+```
+gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
+cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/nvme0n1p1 --key-file=/tmp/luks-keyfile 
+```
+### Key generation for GPG symmetric keyfile for Root drive
+```
+dd if=/dev/urandom of=luks-keyfil bs=8388608 count=4
 gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
 ```
 And now we need to decrypt the key that we just created.
