@@ -44,7 +44,12 @@ gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
 We need to decrypt
 ```
 gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
-cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/nvme0n1p1 --key-file=/tmp/luks-keyfile 
+cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[swap_partition] --key-file=/tmp/luks-keyfile 
+```
+Now we can open the disk for modification
+```
+cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/luks-keyfile
+
 ```
 ### Key generation for GPG symmetric keyfile for Root drive
 ```
@@ -58,7 +63,7 @@ cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --has
 ```
 To open the disk use the following command.
 ```
-cryptsetup open /dev/[root_partition] --key-file=/tmp/luks-keyfile
+cryptsetup open /dev/[root_partition] cryptroot --key-file=/tmp/luks-keyfile
 ```
 After you have finished open the drive dont forget to remove the key file in /tmp/luks-keyfile, to securly delete it use:
 ```
