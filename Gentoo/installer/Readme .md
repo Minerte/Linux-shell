@@ -1,4 +1,4 @@
-***How we encrypt the disk with a seperate boot drive and keyfile
+#How we encrypt the disk with a seperate boot drive and keyfile
 
 First we need to format the disk to look something like this:
 ```
