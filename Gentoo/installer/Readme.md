@@ -1,5 +1,5 @@
 # This is both a guide and what the autoscript is doing
-### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done
+### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
 
 The disk will look something like this when we done partitioning.
 ```
@@ -124,4 +124,36 @@ mount -t btrfs -o defaults,noatime,compress=lzo,subvol=etc /dev/mapper/cryptroot
 mount -t btrfs -o defaults,noatime,compress=lzo,subvol=var /dev/mapper/cryptroot /mnt/gentoo/var
 mount -t btrfs -o defaults,noatime,compress=lzo,subvol=log /dev/mapper/cryptroot /mnt/gentoo/log
 mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /dev/mapper/cryptroot /mnt/gentoo/tmp
+```
+
+# Now we will edit in chroot
+This should be done before the kernel compile.
+example picture of disk config to change for dracut.conf
+```
+sda
+├──sda1     BDF2-0139
+└──sda2     0e86bef-30f8-4e3b-ae35-3fa2c6ae705b # UUID=BOOT_KEY_PARTITION_UUID
+nvme0n1
+└─nvme0n1p1 4bb45bd6-9ed9-44b3-b547-b411079f043b # PARTITION_FOR_ROOT 
+  └─root    cb070f9e-da0e-4bc5-825c-b01bb2707704
+```
+we need to add configurations to dracut in /etc/dracut.conf
+```
+add_dracutmodules+=" crypt crypt-gpg dm rootfs-block " # This is for GPG key config
+kernel_cmdline+=" root=LABEL=crypt rd.luks.uuid=PARTITION_FOR_ROOT rd.luks.key=/crypt_key.luks.gpg:UUID=BOOT_KEY_PARTITION_UUID "
+```
+
+extracting the initramfs the user should cd to /usr/src/initramfs
+```
+/usr/lib/dracut/skipcpio /boot/initramfs-6.1.28-gentoo-initramfs.img | zcat | cpio -ivd
+```
+
+You should do it when you gone build the kernel.
+**Embedding a directory**
+With the _initramfs_ unpacked in /usr/src/initramfs, the kernel can be configured to embed it:
+```
+General Setup --->
+[*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
+    (/usr/src/initramfs) Initramfs source file(s)
+[*]   Support initial ramdisk/ramfs compressed using gzip
 ```
