@@ -1,4 +1,5 @@
-#How we encrypt the disk with a seperate boot drive and keyfile
+# This is both a guide and what the autoscript is doing
+### The guide is taken from Full Disk Encryption from scratch[https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch]
 
 First we need to format the disk to look something like this:
 ```
