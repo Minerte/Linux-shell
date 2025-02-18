@@ -29,7 +29,7 @@ mkfs.ext4 /dev/sda2
 After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2 so we need to create a mount point in /media/.
 ```
 mkdir /media/sda2
-mount /dev/sda2 /meda/sda2
+mount /dev/sda2 /media/sda2
 ```
 
 Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Live-cd but then you need to change of=/path/to/file.
@@ -40,7 +40,7 @@ cd /media/sda2
 ### Key generation for SWAP partition
 Here we generate a keyfile, the keyfile of swap should be **16MB**
 ```
-dd if=/dev/urandom of=swap-keyfile bs=16777216 count=1 # User can change bs= to any number that is higher then 512bytes
+dd if=/dev/urandom of=swap-keyfile bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
 ```
 
@@ -63,7 +63,7 @@ shred -u /tmp/swap-keyfile
 ### Key generation for GPG symmetric keyfile for Root drive
 First we need to generate the key and the generation of the keyfile, so the keyfile size should be **32MB** with the command
 ```
-dd if=/dev/urandom of=luks-keyfil bs=33554432 count=1 # User can change bs= to any number that is higher then 512bytes
+dd if=/dev/urandom of=luks-keyfil bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
 ```
 
