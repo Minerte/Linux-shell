@@ -51,10 +51,11 @@ Now we can open the disk for modification
 cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/swap-keyfile
 ```
 And then you might want to securly remove the **swap-keyfile** with the command:
-#### Caution do not delete the luks-keyfile in /media/sda2!
+#### Caution do not delete the swap-keyfile in /media/sda2!
 ```
 shred -u /tmp/swap-keyfile
 ```
+
 ### Key generation for GPG symmetric keyfile for Root drive
 
 First we need to generate the key and the generation of the keyfile size is **8388608** * **4** so the keyfile size should be 32MB
