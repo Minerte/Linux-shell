@@ -127,6 +127,14 @@ mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /
 ```
 
 # Now we will edit in chroot
+
+### If using hardened/selinux stage 3 file, You need to compile the kernel before doing.
+```
+emerge --ask --verbose --update --deep --changed-use @world
+or
+emerge --emptytree -a -1 @installed
+```
+
 This should be done before the kernel compile.
 example picture of disk config to change for dracut.conf
 ```
