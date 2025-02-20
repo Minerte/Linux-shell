@@ -148,34 +148,45 @@ EOF
     # Add your next steps here
 }
 
-function Download_stage3file () {
-    # URLs for the directories
-    HARDENED_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
-    SELINUX_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
+function Download_stage3file() {
+    
+    BASE_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
+
+    # Directory to download files
+    DOWNLOAD_DIR="/mnt/gentoo"
 
     # Function to fetch the latest tarball
     fetch_latest_tarball() {
-        local url="$1"
-        echo "Searching for the latest tarball in: $url"
-    
-        latest_tarball=$(curl -s "$url" | grep -oE 'stage3-.*\.tar\.xz' | sort -V | tail -n 1)
-    
+        local type="$1"
+        local search_url="$2"
+        
+        echo "Searching for the latest tarball in: $search_url"
+
+        # Fetch the latest tarball name
+        latest_tarball=$(curl -s "$search_url" | grep -oE 'stage3-.*\.tar\.xz' | sort -V | tail -n 1)
+
         if [[ -n "$latest_tarball" ]]; then
             echo "Latest tarball found: $latest_tarball"
-            echo "Full URL: ${url}${latest_tarball}"
-            echo "Do you want to download this file? (y/n)"
+
+            # Construct the Bouncer URL
+            TAR_URL="${BASE_URL}${latest_tarball}"
+            SIGNATURE_URL="${TAR_URL}.asc"
+
+            echo "Do you want to download this file to $DOWNLOAD_DIR? (y/n)"
             read -r choice
             if [[ "$choice" == "y" ]]; then
-                wget "${url}${latest_tarball}"
-                wget "${url}${latest_tarball}.asc"
+                echo "Downloading tarball and signature from Gentoo Bouncer..."
+                wget -P "$DOWNLOAD_DIR" "$TAR_URL" || { echo "Error: Failed to download tarball!"; exit 1; }
+                wget -P "$DOWNLOAD_DIR" "$SIGNATURE_URL" || { echo "Error: Failed to download signature file!"; exit 1; }
                 echo "Download complete."
-            
+
                 # Verify the GPG signature
-                echo "Importing gentoo-release.asc"
+                echo "Importing gentoo-release.asc..."
                 gpg --import /usr/share/openpgp-keys/gentoo-release.asc
                 sleep 3
+
                 echo "Verifying GPG signature..."
-                gpg --verify "${latest_tarball}.asc" "${latest_tarball}"
+                gpg --verify "$DOWNLOAD_DIR/${latest_tarball}.asc" "$DOWNLOAD_DIR/${latest_tarball}"
                 if [[ $? -eq 0 ]]; then
                     echo "GPG verification successful."
                 else
@@ -185,7 +196,8 @@ function Download_stage3file () {
                 echo "Download skipped."
             fi
         else
-            echo "No tarball found at $url"
+            echo "Error: No tarball found at $search_url"
+            exit 1
         fi
     }
 
@@ -197,24 +209,25 @@ function Download_stage3file () {
 
     case "$selection" in
         1)
-            echo "Fetching latest hardened tarball..."
-            fetch_latest_tarball "$HARDENED_URL"
+            echo "Fetching latest Hardened OpenRC tarball..."
+            fetch_latest_tarball "hardened" "https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
             ;;
         2)
-            echo "Fetching latest SELinux tarball..."
-            fetch_latest_tarball "$SELINUX_URL"
+            echo "Fetching latest SELinux OpenRC tarball..."
+            fetch_latest_tarball "selinux" "https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
             ;;
         *)
             echo "Invalid selection. Exiting."
             exit 1
             ;;
     esac
+
     sleep 5
-    echo "extracting stage3 file"
-    tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "failed to extract"; exit 1; }
+    echo "Extracting stage3 file..."
+    tar xpvf "$DOWNLOAD_DIR"/stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
     sleep 5
-    echo "Gentoo stage file setup done"
-    echo "Successfully"
+    echo "Gentoo stage file setup complete."
+    echo "Success!"
 }
 
 function config_system () {
