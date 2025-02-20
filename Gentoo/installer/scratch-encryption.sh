@@ -168,7 +168,7 @@ function Download_stage3file() {
         if [[ -n "$latest_tarball" ]]; then
             echo "Latest tarball found: $latest_tarball"
 
-            # Construct the Bouncer URL
+            # Construct the Bouncer URLs
             TAR_URL="${BASE_URL}${latest_tarball}"
             SIGNATURE_URL="${TAR_URL}.asc"
 
@@ -176,24 +176,33 @@ function Download_stage3file() {
             read -r choice
             if [[ "$choice" == "y" ]]; then
                 echo "Downloading tarball and signature from Gentoo Bouncer..."
-                wget -P "$DOWNLOAD_DIR" "$TAR_URL" || { echo "Error: Failed to download tarball!"; exit 1; }
-                wget -P "$DOWNLOAD_DIR" "$SIGNATURE_URL" || { echo "Error: Failed to download signature file!"; exit 1; }
+                
+                wget -P "$DOWNLOAD_DIR" "$TAR_URL" -O "$DOWNLOAD_DIR/$latest_tarball" || { echo "Error: Failed to download tarball!"; exit 1; }
+                wget -P "$DOWNLOAD_DIR" "$SIGNATURE_URL" -O "$DOWNLOAD_DIR/$latest_tarball.asc" || { echo "Error: Failed to download signature file!"; exit 1; }
+                
                 echo "Download complete."
 
-                # Verify the GPG signature
+                # Verify that both files match
+                if [[ ! -f "$DOWNLOAD_DIR/$latest_tarball" || ! -f "$DOWNLOAD_DIR/$latest_tarball.asc" ]]; then
+                    echo "Error: Tarball or signature file is missing!"
+                    exit 1
+                fi
+
                 echo "Importing gentoo-release.asc..."
                 gpg --import /usr/share/openpgp-keys/gentoo-release.asc
                 sleep 3
 
                 echo "Verifying GPG signature..."
-                gpg --verify "$DOWNLOAD_DIR/${latest_tarball}.asc" "$DOWNLOAD_DIR/${latest_tarball}"
+                gpg --verify "$DOWNLOAD_DIR/$latest_tarball.asc" "$DOWNLOAD_DIR/$latest_tarball"
                 if [[ $? -eq 0 ]]; then
                     echo "GPG verification successful."
                 else
                     echo "GPG verification failed! Please check the signature manually."
+                    exit 1
                 fi
             else
                 echo "Download skipped."
+                exit 0
             fi
         else
             echo "Error: No tarball found at $search_url"
@@ -224,7 +233,7 @@ function Download_stage3file() {
 
     sleep 5
     echo "Extracting stage3 file..."
-    tar xpvf "$DOWNLOAD_DIR"/stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
+    tar xpvf "$DOWNLOAD_DIR/$latest_tarball" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
     sleep 5
     echo "Gentoo stage file setup complete."
     echo "Success!"
