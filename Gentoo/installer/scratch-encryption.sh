@@ -149,91 +149,91 @@ EOF
 }
 
 function Download_stage3file() {
-    
-    BASE_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
 
-    # Directory to download files
-    DOWNLOAD_DIR="/mnt/gentoo"
+    # Function to download a file
+    download_file() {
+        local url=$1
+        local dest=$2
+        echo "Downloading $dest from $url..."
+        curl -O "$url"
+    }
 
-    # Function to fetch the latest tarball
-    fetch_latest_tarball() {
-        local type="$1"
-        local search_url="$2"
-        
-        echo "Searching for the latest tarball in: $search_url"
-
-        # Fetch the latest tarball name
-        latest_tarball=$(curl -s "$search_url" | grep -oE 'stage3-.*\.tar\.xz' | sort -V | tail -n 1)
-
-        if [[ -n "$latest_tarball" ]]; then
-            echo "Latest tarball found: $latest_tarball"
-
-            # Construct the Bouncer URLs
-            TAR_URL="${BASE_URL}${latest_tarball}"
-            SIGNATURE_URL="${TAR_URL}.asc"
-
-            echo "Do you want to download this file to $DOWNLOAD_DIR? (y/n)"
-            read -r choice
-            if [[ "$choice" == "y" ]]; then
-                echo "Downloading tarball and signature from Gentoo Bouncer..."
-                
-                wget -P "$DOWNLOAD_DIR" "$TAR_URL" -O "$DOWNLOAD_DIR/$latest_tarball" || { echo "Error: Failed to download tarball!"; exit 1; }
-                wget -P "$DOWNLOAD_DIR" "$SIGNATURE_URL" -O "$DOWNLOAD_DIR/$latest_tarball.asc" || { echo "Error: Failed to download signature file!"; exit 1; }
-                
-                echo "Download complete."
-
-                # Verify that both files match
-                if [[ ! -f "$DOWNLOAD_DIR/$latest_tarball" || ! -f "$DOWNLOAD_DIR/$latest_tarball.asc" ]]; then
-                    echo "Error: Tarball or signature file is missing!"
-                    exit 1
-                fi
-
-                echo "Importing gentoo-release.asc..."
-                gpg --import /usr/share/openpgp-keys/gentoo-release.asc
-                sleep 3
-
-                echo "Verifying GPG signature..."
-                gpg --verify "$DOWNLOAD_DIR/$latest_tarball.asc" "$DOWNLOAD_DIR/$latest_tarball"
-                if [[ $? -eq 0 ]]; then
-                    echo "GPG verification successful."
-                else
-                    echo "GPG verification failed! Please check the signature manually."
-                    exit 1
-                fi
-            else
-                echo "Download skipped."
-                exit 0
-            fi
+    # Function to verify the file with .asc
+    verify_file() {
+        local file=$1
+        local asc_file=$2
+        echo "Verifying $file with $asc_file..."
+        gpg --verify "$asc_file" "$file"
+        if [ $? -eq 0 ]; then
+            echo "Verification successful!"
         else
-            echo "Error: No tarball found at $search_url"
+            echo "Verification failed!"
             exit 1
         fi
     }
 
-    # Let the user choose the type of tarball
-    echo "Select the tarball type to download:"
-    echo "1) Hardened Tarball"
-    echo "2) SELinux Tarball"
-    read -r selection
+    # Prompt user to choose between Hardened and SELinux
+    echo "Choose the Gentoo Linux Stage file version:"
+    echo "1. Hardened"
+    echo "2. SELinux"
+    read -p "Enter choice (1 or 2): " choice
 
-    case "$selection" in
-        1)
-            echo "Fetching latest Hardened OpenRC tarball..."
-            fetch_latest_tarball "hardened" "https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
-            ;;
-        2)
-            echo "Fetching latest SELinux OpenRC tarball..."
-            fetch_latest_tarball "selinux" "https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
-            ;;
-        *)
-            echo "Invalid selection. Exiting."
-            exit 1
-            ;;
-    esac
+    # Set the URL variables for Hardened and SELinux
+    if [ "$choice" -eq 1 ]; then
+        # Hardened
+        base_url="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
+        profile="hardened"
+    elif [ "$choice" -eq 2 ]; then
+        # SELinux
+        base_url="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
+        profile="selinux"
+    else
+        echo "Invalid choice! Exiting."
+        exit 1
+    fi
+
+    # Fetch the latest file list and find the most recent stage3 file for the selected profile
+    echo "Fetching the latest file for $profile..."
+    file_list=$(curl -s "$base_url" | grep -oP "stage3-amd64-${profile}.*\.tar\.xz")
+
+    # If no files were found, exit with an error
+    if [ -z "$file_list" ]; then
+        echo "No files found for the selected profile: $profile."
+        exit 1
+    fi
+
+    # Get the latest file (by sorting by date in filename)
+    latest_file=$(echo "$file_list" | sort -V | tail -n 1)
+
+    # Ensure that the .asc file matches the version of the .tar.xz file
+    asc_file="${latest_file}.asc"
+
+    # If the .asc file doesn't match, exit with an error
+    if ! echo "$file_list" | grep -q "$asc_file"; then
+        cho "The .asc file does not match the .tar.xz file version. Exiting."
+        exit 1
+    fi
+
+    # Form full URLs for the stage file and .asc file
+    stage_url="${base_url}${latest_file}"
+    asc_url="${base_url}${asc_file}"
+
+    echo "Latest file found: $latest_file"
+    echo "Downloading stage file: $stage_url"
+    echo "Downloading .asc file: $asc_url"
+
+    # Download the stage file and .asc file
+    download_file "$stage_url" "$latest_file"
+    download_file "$asc_url" "$asc_file"
+
+    # Verify the file with .asc
+    verify_file "$latest_file" "$asc_file"
+
+    echo "Process completed successfully!"
 
     sleep 5
     echo "Extracting stage3 file..."
-    tar xpvf "$DOWNLOAD_DIR/$latest_tarball" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
+    tar xpvf "srage3-*.tar.xz" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
     sleep 5
     echo "Gentoo stage file setup complete."
     echo "Success!"
