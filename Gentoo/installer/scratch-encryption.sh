@@ -110,7 +110,7 @@ EOF
     shred -u /tmp/luks-keyfile
     # End of prep for root partition
 
-    cd ~ || { echo "Failed to change to user root directory"; exit 1; }
+    cd || { echo "Failed to change to user root directory"; exit 1; }
 
     # Root partition setup
     mkdir /mnt/root || { echo "Failed to create directory"; exit 1; }
@@ -149,14 +149,16 @@ EOF
 }
 
 function Download_stage3file() {
-
+    
+    cd || { echo "failed to change directory to root"; exit 1 ; }
     echo "Please don't exit the link menu berfor the download is completed"
     echo "select you choosen stage 3 file"
     sleep 10
     links https://www.gentoo.org/downloads/mirrors/
     sleep 10
+    cd || { echo "failed to change directory to root"; exit 1 ; }
     echo "Extracting stage3 file..."
-    tar xpvf "stage3-*.tar.xz" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
+    tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
     sleep 5
     echo "Gentoo stage file setup complete."
     echo "Success!"
