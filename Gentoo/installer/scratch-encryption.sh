@@ -132,41 +132,7 @@ EOF
     # End of prep for root partition
 
     # Function to display partitions in tree format
-    display_partition_tree() {
-        local disk=$1
-        local indent=$2
-        echo -e "${indent}${disk} # $(lsblk -no LABEL,MODEL,SERIAL $disk 2>/dev/null | head -1)"
-
-        lsblk -rno NAME,TYPE,MOUNTPOINT,SIZE,FSTYPE,LABEL $disk | while read -r name type mount size fstype label; do
-            local full_path="/dev/$name"
-            local new_indent="${indent}├──"
-
-            # LUKS encryption btrfs
-            if [[ $fstype == "crypto_LUKS" ]]; then
-                luks_mapper=$(lsblk -rno NAME,TYPE $full_path | awk '$2=="crypt" {print $1}')
-                echo -e "${new_indent} ${full_path} [$label] ($mount) ->END $fstype Encrypted volume"
-                if [[ -n "$luks_mapper" ]]; then
-                    echo -e "${indent}│   └── /dev/mapper/$luks_mapper $(findmnt -n -o TARGET,FSTYPE /dev/mapper/$luks_mapper 2>/dev/null | awk '{printf "%-10s %s\n", $1, $2}')"
-                    # Print Btrfs subvolumes if applicable
-                    if [[ $(blkid -s TYPE -o value /dev/mapper/$luks_mapper) == "btrfs" ]]; then
-                        echo -e "${indent}│       ├── /home     subvolume"
-                        echo -e "${indent}│       ├── /etc      subvolume"
-                        echo -e "${indent}│       ├── /var      subvolume"
-                        echo -e "${indent}│       ├── /log      subvolume"
-                        echo -e "${indent}│       └── /tmp      subvolume"
-                    fi
-                fi
-            else
-                echo -e "${new_indent} ${full_path} [$label] $mount $size $fstype"
-            fi
-        done
-    }
-
-    # Get a list of available disks
-    for disk in $(lsblk -nd --output NAME,TYPE | awk '$2=="disk" {print "/dev/"$1}'); do
-        display_partition_tree "$disk" ""
-    done
-
+    lsblk
     # Ask user for confirmation
     echo -e "\nDoes the disk layout look correct? (y/n): "
     read -r user_input
