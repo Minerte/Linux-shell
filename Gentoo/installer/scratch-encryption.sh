@@ -113,7 +113,7 @@ EOF
     cd ~ || { echo "Failed to change to user root directory"; exit 1; }
 
     # Root partition setup
-    mkdir -p /mnt/root || { echo "Failed to create directory"; exit 1; }
+    mkdir /mnt/root || { echo "Failed to create directory"; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/cryptroot || { echo "Failed to create btrfs"; exit 1; }
     mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount btrfs /dev/mapper/cryptroot to /mnt/root"; exit 1; }
 
@@ -121,10 +121,10 @@ EOF
     for sub in activeroot home etc var log tmp; do
         btrfs subvolume create "/mnt/root/$sub" || { echo "Failed to create subvolume $sub"; exit 1; }
     done
-
+    
     # Creating and mounting to root
-    mkdir -p /mnt/gentoo/{home,etc,var,log,tmp}
     mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
+    mkdir /mnt/gentoo/{home,etc,var,log,tmp}
     for sub in home etc var log tmp; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
     done
