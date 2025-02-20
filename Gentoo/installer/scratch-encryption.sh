@@ -150,90 +150,13 @@ EOF
 
 function Download_stage3file() {
 
-    # Function to download a file
-    download_file() {
-        local url=$1
-        local dest=$2
-        echo "Downloading $dest from $url..."
-        curl -O "$url"
-    }
-
-    # Function to verify the file with .asc
-    verify_file() {
-        local file=$1
-        local asc_file=$2
-        echo "Verifying $file with $asc_file..."
-        gpg --verify "$asc_file" "$file"
-        if [ $? -eq 0 ]; then
-            echo "Verification successful!"
-        else
-            echo "Verification failed!"
-            exit 1
-        fi
-    }
-
-    # Prompt user to choose between Hardened and SELinux
-    echo "Choose the Gentoo Linux Stage file version:"
-    echo "1. Hardened"
-    echo "2. SELinux"
-    read -p "Enter choice (1 or 2): " choice
-
-    # Set the URL variables for Hardened and SELinux
-    if [ "$choice" -eq 1 ]; then
-        # Hardened
-        base_url="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
-        profile="hardened"
-    elif [ "$choice" -eq 2 ]; then
-        # SELinux
-        base_url="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
-        profile="selinux"
-    else
-        echo "Invalid choice! Exiting."
-        exit 1
-    fi
-
-    # Fetch the latest file list and find the most recent stage3 file for the selected profile
-    echo "Fetching the latest file for $profile..."
-    file_list=$(curl -s "$base_url" | grep -oP "stage3-amd64-${profile}.*\.tar\.xz")
-
-    # If no files were found, exit with an error
-    if [ -z "$file_list" ]; then
-        echo "No files found for the selected profile: $profile."
-        exit 1
-    fi
-
-    # Get the latest file (by sorting by date in filename)
-    latest_file=$(echo "$file_list" | sort -V | tail -n 1)
-
-    # Ensure that the .asc file matches the version of the .tar.xz file
-    asc_file="${latest_file}.asc"
-
-    # If the .asc file doesn't match, exit with an error
-    if ! echo "$file_list" | grep -q "$asc_file"; then
-        cho "The .asc file does not match the .tar.xz file version. Exiting."
-        exit 1
-    fi
-
-    # Form full URLs for the stage file and .asc file
-    stage_url="${base_url}${latest_file}"
-    asc_url="${base_url}${asc_file}"
-
-    echo "Latest file found: $latest_file"
-    echo "Downloading stage file: $stage_url"
-    echo "Downloading .asc file: $asc_url"
-
-    # Download the stage file and .asc file
-    download_file "$stage_url" "$latest_file"
-    download_file "$asc_url" "$asc_file"
-
-    # Verify the file with .asc
-    verify_file "$latest_file" "$asc_file"
-
-    echo "Process completed successfully!"
-
-    sleep 5
+    echo "Please don't exit the link menu berfor the download is completed"
+    echo "select you choosen stage 3 file"
+    sleep 10
+    links https://www.gentoo.org/downloads/mirrors/
+    sleep 10
     echo "Extracting stage3 file..."
-    tar xpvf "srage3-*.tar.xz" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
+    tar xpvf "stage3-*.tar.xz" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
     sleep 5
     echo "Gentoo stage file setup complete."
     echo "Success!"
