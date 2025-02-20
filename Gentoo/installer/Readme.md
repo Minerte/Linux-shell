@@ -21,7 +21,7 @@ The disk will look something like this when we done partitioning.
 ### Preparing the "boot drive" to be mounted and generate keyfile
 After disk preparation we need to create filesystem for /dev/sda1 and /dev/sda2 (our boot drive).
 ```
-mkfs.vfat -F32 /dev/sda1
+mkfs.vfat -F 32 /dev/sda1
 mkfs.ext4 /dev/sda2
 ```
 **Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
