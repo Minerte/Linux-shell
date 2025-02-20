@@ -115,13 +115,13 @@ EOF
     # Root partition setup
     mkdir /mnt/root || { echo "Failed to create directory"; exit 1; }
     mkfs.btrfs -L BTROOT /dev/mapper/cryptroot || { echo "Failed to create btrfs"; exit 1; }
-    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount btrfs /dev/mapper/cryptroot to /mnt/root"; exit 1; }
+    mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount btrfs /dev/mapper/cryptroot to /mnt/root"; exit 1; }
 
     # Create subvolumes
     for sub in activeroot home etc var log tmp; do
         btrfs subvolume create "/mnt/root/$sub" || { echo "Failed to create subvolume $sub"; exit 1; }
     done
-    
+
     # Creating and mounting to root
     mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
     mkdir /mnt/gentoo/{home,etc,var,log,tmp}
@@ -186,12 +186,16 @@ function Download_stage3file () {
     # Define the base URL for the Gentoo stage-3 directory
     BASE_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
 
-    # Fetch the index page
-    INDEX_PAGE=$(curl -s "$BASE_URL")
+    # Temporary directory to store the recursive wget download
+    TEMP_DIR=$(mktemp -d)
 
-    # Extract the hardened and hardened-selinux stage-3 tarballs
-    HARDENED_TARBALLS=$(echo "$INDEX_PAGE" | grep -oP 'stage3-amd64-hardened-[0-9]{8}\.tar\.xz')
-    HARDENED_SELINUX_TARBALLS=$(echo "$INDEX_PAGE" | grep -oP 'stage3-amd64-hardened-selinux-[0-9]{8}\.tar\.xz')
+    # Download all files recursively using wget
+    echo "Downloading the directory contents recursively..."
+    wget -r -l inf -np -nH --cut-dirs=5 --reject="index.html*" "$BASE_URL" -P "$TEMP_DIR" || { echo "FAILED to fetch stage3 files"; exit 1; }
+
+    # Extract the hardened and hardened-selinux stage-3 tarballs from the downloaded files
+    HARDENED_TARBALLS=$(find "$TEMP_DIR" -type f -name 'stage3-amd64-hardened-[0-9]*.tar.xz')
+    HARDENED_SELINUX_TARBALLS=$(find "$TEMP_DIR" -type f -name 'stage3-amd64-hardened-selinux-[0-9]*.tar.xz')
 
     # Check if we found any stage-3 tarballs
     if [[ -z "$HARDENED_TARBALLS" && -z "$HARDENED_SELINUX_TARBALLS" ]]; then
@@ -218,26 +222,26 @@ function Download_stage3file () {
         1)
             # Sort and select the latest hardened tarball
             LATEST_HARDENED=$(echo "$HARDENED_TARBALLS" | sort | tail -n 1)
-            DOWNLOAD_URL="${BASE_URL}${LATEST_HARDENED}"
-            SIGNATURE_URL="${BASE_URL}${LATEST_HARDENED}.asc"
+            DOWNLOAD_URL="$LATEST_HARDENED"
+            SIGNATURE_URL="${LATEST_HARDENED}.asc"
             echo "The latest hardened stage-3 tarball is: $LATEST_HARDENED"
             echo "Downloading to the current directory..."
         
             # Download the tarball and the signature file to the current directory
-            wget "$DOWNLOAD_URL" || { echo "FAILED to fetch stage3 file"; exit 1; }
-            wget "$SIGNATURE_URL" || { echo "FAILED to fetch stage3 file.asc"; exit 1; }
+            cp "$LATEST_HARDENED" . || { echo "FAILED to copy stage3 file"; exit 1; }
+            cp "$SIGNATURE_URL" . || { echo "FAILED to copy stage3 file.asc"; exit 1; }
             ;;
         2)
             # Sort and select the latest hardened-selinux tarball
             LATEST_HARDENED_SELINUX=$(echo "$HARDENED_SELINUX_TARBALLS" | sort | tail -n 1)
-            DOWNLOAD_URL="${BASE_URL}${LATEST_HARDENED_SELINUX}"
-            SIGNATURE_URL="${BASE_URL}${LATEST_HARDENED_SELINUX}.asc"
+            DOWNLOAD_URL="$LATEST_HARDENED_SELINUX"
+            SIGNATURE_URL="${LATEST_HARDENED_SELINUX}.asc"
             echo "The latest hardened-selinux stage-3 tarball is: $LATEST_HARDENED_SELINUX"
             echo "Downloading to the current directory..."
         
             # Download the tarball and the signature file to the current directory
-            wget "$DOWNLOAD_URL" || { echo "FAILED to fetch stage3 file"; exit 1; }
-            wget "$SIGNATURE_URL" || { echo "FAILED to fetch stage3 file.asc"; exit 1; }
+            cp "$LATEST_HARDENED_SELINUX" . || { echo "FAILED to copy stage3 file"; exit 1; }
+            cp "$SIGNATURE_URL" . || { echo "FAILED to copy stage3 file.asc"; exit 1; }
             ;;
         3)
             echo "Exiting..."
