@@ -171,6 +171,8 @@ function Download_stage3file () {
                 echo "Download complete."
             
                 # Verify the GPG signature
+                echo "Importing gentoo-release.asc"
+                gpg --import /usr/share/openpgp-keys/gentoo-release.asc
                 echo "Verifying GPG signature..."
                 gpg --verify "${latest_tarball}.asc" "${latest_tarball}"
                 if [[ $? -eq 0 ]]; then
