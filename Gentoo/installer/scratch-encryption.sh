@@ -169,8 +169,17 @@ function Download_stage3file () {
                 wget "${url}${latest_tarball}"
                 wget "${url}${latest_tarball}.asc"
                 echo "Download complete."
+            
+                # Verify the GPG signature
+                echo "Verifying GPG signature..."
+                gpg --verify "${latest_tarball}.asc" "${latest_tarball}"
+                if [[ $? -eq 0 ]]; then
+                    echo "GPG verification successful."
+                else
+                    echo "GPG verification failed! Please check the signature manually."
+                fi
             else
-            echo "Download skipped."
+                echo "Download skipped."
             fi
         else
             echo "No tarball found at $url"
@@ -197,14 +206,10 @@ function Download_stage3file () {
             exit 1
             ;;
     esac
-
-    echo "Verifying downloaded stage file"
-    gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import GPG keys."; exit 1; }
-    gpg --verify stage3-*.tar.xz.asc || { echo "GPG verification failed."; exit 1; }
     sleep 5
     echo "extracting stage3 file"
     tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "failed to extract"; exit 1; }
-    
+    sleep 5
     echo "Gentoo stage file setup done"
     echo "Successfully"
 }
