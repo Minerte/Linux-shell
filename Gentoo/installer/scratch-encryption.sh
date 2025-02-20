@@ -76,71 +76,110 @@ p # print partitions
 w # write to disk
 q # exit
 EOF
-    # Prep for boot disk
-    mkfs.vfat -F32 "${sel_disk_boot}1" || { echo "Failed to make vfat"; exit 1; }
-    mkfs.ext4 "${sel_disk_boot}2" || { echo "Failed to make ext 4"; exit 1; }
-    mkdir -p /media/external-usb || { echo "Failed to make directory /media/extern-usb"; exit 1; }
-    mkdir --parents /media/boot-drive || { echo "Failed /media/boot-drive"; exit 1; }
-    mkdir -p /media/boot-drive/efi || { echo "Failed"; exit 1; }
-    mount "${sel_disk_boot}2" /media/external-usb || { echo "Failed to mount ${sel_disk_boot}2 to /media/extern-usb"; exit 1; }
-    mount "${sel_disk_boot}1" /media/boot-drive || { echo "Failed to mount ${sel_disk_boot}1 to /media/boot-drive"; exit 1; }
+    # Start Prep for boot disk
+    mkfs.vfat -F 32 "${sel_disk_boot}1"
+    mkfs.ext4 "${sel_disk_boot}2"
+    mkdir /media/ex-usb
+    mount "${sel_disk_boot}2" /media/ex-usb
+    cd /media/ex-usb || { echo "Failed to change directory"; exit 1;}
+    # End of prep for boot disk
 
-    # SETUP MAIN DISK FOR USABLE DRIVE
-    # Encrypting swap parition
-    cryptsetup open --type plain --cipher aes-xts-plain64 --key-size 512 --key-file /dev/urandom "${sel_disk}1" cryptswap || { echo "Failed to encrypt swap partition"; exit 1; }
-    mkswap /dev/mapper/cryptswap || { echo "Failed to create swap"; exit 1; }
-    swapon /dev/mapper/cryptswap || { echo "Failed to swapon"; exit 1; }
+    # Start prep for swap partition
+    dd if=/dev/urandom of=swap-keyfile bs=8388608 count=1 || { echo "Could not generate key for swap-keyfile"; exit 1; }
+    gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile || { echo "Could not encrypt key with gpg --symmetric key for swap-keyfile"; exit 1; }
 
-    # Making keyfile
-    cd /media/external-usb/ || { echo "failed to change directorty"; exit 1;}
-    sleep 3
-    export GPG_TTY=$(tty) || { echo "Failed to export GPG_tty to current tty"; exit 1; }
-    sleep 10
-    dd bs=8388608 count=1 if=/dev/urandom | gpg --symmetric --cipher-algo AES256 --output crypt_key.luks.gpg || { echo "failed to make a keyfile"; exit 1; }
-    sleep 60
-    cryptsetup luksFormat --key-size 512 --cipher aes-xts-plain64 --header /media/external-usb/luks_header.img "${sel_disk}2" || { echo "Failed  to decrypt keyfil and encrypt diskt"; exit 1; }
-    sleep 30
-    # Passphrase to keyfile
-    mkfifo crypt_key cryptsetup_pass || { echo "failed to mkfifo crypt_key, cryptsetup_pass"; exit 1;}
-    sleep 30
-    gpg --decrypt crypt_key.luks.gpg > crypt_key &
-    sleep 30
-    read -s -r -p 'LUKS passphrase: ' CRYPT_PASS; echo "$CRYPT_PASS" > cryptsetup_pass &
-    sleep 30
-    cat cryptsetup_pass crypt_key | cryptsetup luksAddKey "${sel_disk}2" || { echo "failed to cat crypt_key cryptsetup to add new key to ${sel_disk}2"; exit 1;}
-    sleep 30
-    # last in setup_disk funtion to remove key_pipe copy of key
-    # rm key_pipe
-    gpg --decrypt crypt_key.luks.gpg | cryptsetup --key-file - open "${sel_disk}2" cryptroot || { echo "failed to decrypt and open disk ${sel_disk}2 "; exit 1;}
-    sleep 130
-    # SETUP BOOT DISK
+    gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg || { echo "Could not decrypt key with gpg --symmetric key for swap-keyfile"; exit 1; }
+    cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${sel_disk}1" --key-file=/tmp/swap-keyfile || { echo "Could encrypt swap partition with key-file swap-keyfile"; exit 1; }
+
+    cryptsetup open "${sel_disk}1" cryptswap --key-file=/tmp/swap-keyfile || { echo "Could not open the encrypted swap partition"; exit 1; }
+    shred -u /tmp/swap-keyfile
+    
+    # Swap partition setup
+    mkswap /dev/mapper/cryptswap || { echo "Failed to make swap"; exit 1; }
+    swapon /dev/mapper/cryptswap || { echo "No swap on"; exit 1; }
+    # End of prep for swap partition
+
+    # Start prep for root partition
+    dd if=/dev/urandom of=luks-keyfil bs=8388608 count=1 || { echo "Could not generate key for luks-keyfile"; exit 1; }
+    gpg --symmetric --cipher-algo AES256 --output luks-keyfile.gpg luks-keyfile || { echo "Could not encrypt key with gpg --symmetric key for luks-keyfile"; exit 1; }
+
+    gpg --decrypt --output /tmp/luks-keyfile luks-keyfile.gpg || { echo "Could not decrypt key with gpg --symmetric key for luks-keyfile"; exit 1; }
+    cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${sel_disk}2" --key-file=/tmp/luks-keyfile || { echo "Could encrypt root partition with key-file luks-keyfile"; exit 1; }
+
+    cryptsetup open "${sel_disk}2" cryptroot --key-file=/tmp/luks-keyfile || { echo "Could not open the encrypted root partition"; exit 1; }
+    shred -u /tmp/luks-keyfile
+    # End of prep for root partition
+
+    cd ~ || { echo "Failed to change to user root directory"; exit 1; }
+
     # Root partition setup
     mkdir -p /mnt/root || { echo "Failed to create directory"; exit 1; }
-    mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
-    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root
-    cryptsetup luksHeaderBackup "${sel_disk}2" --header-backup-file crypt_headers.img || { echo "failed to make a LuksHeader backup"; exit 1;}
-    cd ~ || { echo "failed to change to root directory"; exit 1; }
+    mkfs.btrfs -L BTROOT /dev/mapper/cryptroot || { echo "Failed to create btrfs"; exit 1; }
+    mount -t btrfs -o defaults,noatime,compress=lzo /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount btrfs /dev/mapper/cryptroot to /mnt/root"; exit 1; }
 
-    btrfs subvolme create /mnt/root/activeroot || { echo "Failed to create subvolume /activeroot"; exit 1; }
-    btrfs subvolme create /mnt/root/home || { echo "Failed to create subvolume /home"; exit 1; }
-    btrfs subvolme create /mnt/root/etc || { echo "Failed to create subvolume /etc"; exit 1; }
-    btrfs subvolme create /mnt/root/var || { echo "Failed to create subvolume /var"; exit 1; }
-    btrfs subvolme create /mnt/root/log || { echo "Failed to create subvolume /log"; exit 1; }
-    btrfs subvolme create /mnt/root/tmp || { echo "Failed to create subvolume /tmp"; exit 1; }
+    # Create subvolumes
+    for sub in activeroot home etc var log tmp; do
+        btrfs subvolume create "/mnt/root/$sub" || { echo "Failed to create subvolume $sub"; exit 1; }
+    done
 
-    # Creating for subvolume mount
-    mkdir -p /mnt/gentoo/home || { echo "failed to create home directory in /mnt/gentoo"; exit 1; }
-    mkdir -p /mnt/gentoo/etc || { echo "failed to create etc directory in /mnt/gentoo"; exit 1; }
-    mkdir -p /mnt/gentoo/var || { echo "failed to create var directory in /mnt/gentoo"; exit 1; }
-    mkdir -p /mnt/gentoo/log || { echo "failed to create log directory in /mnt/gentoo"; exit 1; }
-    mkdir -p /mnt/gentoo/tmp || { echo "failed to create tmp directory in /mnt/gentoo"; exit 1; }
+    # Creating and mounting to root
+    mkdir -p /mnt/gentoo/{home,etc,var,log,tmp}
+    mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
+    for sub in home etc var log tmp; do
+        mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
+    done
 
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=home /dev/mapper/cryptroot /mnt/gentoo/home
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=etc /dev/mapper/cryptroot /mnt/gentoo/etc
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=var /dev/mapper/cryptroot /mnt/gentoo/var
-    mount -t btrfs -o defaults,noatime,compress=lzo,subvol=log /dev/mapper/cryptroot /mnt/gentoo/log
-    mount -t btrfs -o defaults,noatime,nosuid,nodev,noexec,compress=lzo,subvol=tmp /dev/mapper/cryptroot /mnt/gentoo/tmp
+    # End of prep for root partition
+
+    # Function to display partitions in tree format
+    display_partition_tree() {
+        local disk=$1
+        local indent=$2
+        echo -e "${indent}${disk} # $(lsblk -no LABEL,MODEL,SERIAL $disk 2>/dev/null | head -1)"
+
+        lsblk -rno NAME,TYPE,MOUNTPOINT,SIZE,FSTYPE,LABEL $disk | while read -r name type mount size fstype label; do
+            local full_path="/dev/$name"
+            local new_indent="${indent}├──"
+
+            # LUKS encryption btrfs
+            if [[ $fstype == "crypto_LUKS" ]]; then
+                luks_mapper=$(lsblk -rno NAME,TYPE $full_path | awk '$2=="crypt" {print $1}')
+                echo -e "${new_indent} ${full_path} [$label] ($mount) ->END $fstype Encrypted volume"
+                if [[ -n "$luks_mapper" ]]; then
+                    echo -e "${indent}│   └── /dev/mapper/$luks_mapper $(findmnt -n -o TARGET,FSTYPE /dev/mapper/$luks_mapper 2>/dev/null | awk '{printf "%-10s %s\n", $1, $2}')"
+                    # Print Btrfs subvolumes if applicable
+                    if [[ $(blkid -s TYPE -o value /dev/mapper/$luks_mapper) == "btrfs" ]]; then
+                        echo -e "${indent}│       ├── /home     subvolume"
+                        echo -e "${indent}│       ├── /etc      subvolume"
+                        echo -e "${indent}│       ├── /var      subvolume"
+                        echo -e "${indent}│       ├── /log      subvolume"
+                        echo -e "${indent}│       └── /tmp      subvolume"
+                    fi
+                fi
+            else
+                echo -e "${new_indent} ${full_path} [$label] $mount $size $fstype"
+            fi
+        done
+    }
+
+    # Get a list of available disks
+    for disk in $(lsblk -nd --output NAME,TYPE | awk '$2=="disk" {print "/dev/"$1}'); do
+        display_partition_tree "$disk" ""
+    done
+
+    # Ask user for confirmation
+    echo -e "\nDoes the disk layout look correct? (y/n): "
+    read -r user_input
+
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+
+    # Continue with the rest of your script
+    echo "The disk have been succesfully modified with btrfs and subvolumes and the encryption process"
+    echo "Continuing script..."
+    # Add your next steps here
 }
 
 function Download_stage3file () {
@@ -216,9 +255,24 @@ function Download_stage3file () {
     sleep 5
     echo "extracting stage3 file"
     tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "failed to extract"; exit 1; }
-
     
-    echo "Will now edit locale and set keymaps to sv-latin1"
+    echo "Gentoo stage file setup done"
+    echo "Successfully"
+}
+
+function config_system () {
+
+    echo "we will be using EOF to configure fstab"
+    echo "All this coming from first function where we created disk and subvolome"
+    cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
+LABEL=BTROOT    /       btrfs   defaults,noatime,compress=zstd,subvol=activeroot     0 0
+LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=zstd,subvol=home           0 0
+LABEL=BTROOT    /etc    btrfs   defaults,noatime,compress=zstd,subvol=etc            0 0
+LABEL=BTROOT    /var    btrfs   defaults,noatime,compress=zstd,subvol=var            0 0
+LABEL=BTROOT    /log    btrfs   defaults,noatime,compress=zstd,subvol=log            0 0
+LABEL=BTROOT    /tmp    btrfs   defaults,noatime,nosuid,nodev,noexec,compress=zstd,subvol=tmp    0 0
+EOF
+
     sleep 5
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" /mnt/gentoo/etc/locale.gen
     # If dualboot uncomment below
@@ -227,35 +281,7 @@ function Download_stage3file () {
     echo 'LANG="en_US.UTF-8"' >> /mnt/gentoo/etc/locale.conf
     echo 'LC_COLLATE="C.UTF-8"' >> /mnt/gentoo/etc/locale.conf
     echo "Europe/Stockholm" > /mnt/gentoo/etc/timezone
-    
-    echo "Gentoo stage file setup done"
-    echo "Successfully"
-}
 
-function config_system () {
-    root_uuid=$(find_uuid "${sel_disk}2")
-    efi_uuid=$(find_uuid "${sel_disk_boot}1")
-
-    echo "we will be using EOF to configure fstab"
-    echo "All this coming from first function where we created disk and subvolome"
-    cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
-UUID=$efi_uuid  /efi    vfat    umask=077                                           0 2
-LABEL=BTROOT    /       btrfs   defaults,noatime,compress=lzo,subvol=activeroot     0 0
-LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=lzo,subvol=home           0 0
-LABEL=BTROOT    /etc    btrfs   defaults,noatime,compress=lzo,subvol=etc            0 0
-LABEL=BTROOT    /var    btrfs   defaults,noatime,compress=lzo,subvol=var            0 0
-LABEL=BTROOT    /log    btrfs   defaults,noatime,compress=lzo,subvol=log            0 0
-LABEL=BTROOT    /tmp    btrfs   defaults,noatime,nosuid,nodev,noexec,compress=lzo,subvol=tmp    0 0
-EOF
-
-    # The grub config will not be in the same disk it will be in the sel_disk_boot
-    cat << EOF > /mnt/gentoo/etc/default/grub || { echo "Failed to edit grub with EOF"; exit 1; }
-GRUB_CMDLINE_LINUX_DEFAULT="crypt_root=UUID=$root_uuid quiet"
-GRUB_DISABLE_LINUX_PARTUUID=false
-GRUB_DISTBIUTOR="Gentoo"
-GRUB_TIMEOUT=3
-GRUB_ENABLE_CRYPTODISK=y
-EOF
 }
 
 function config_portage () {
@@ -263,7 +289,7 @@ function config_portage () {
     mkdir -p /mnt/gentoo/etc/portage/repos.conf
     cp /usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
     cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
-    sleep 3
+    sleep 5
 
     # Copy custom portage configuration files
     mkdir /mnt/gentoo/etc/portage/env
@@ -286,7 +312,7 @@ function setup_chroot() {
     mount --make-rslave /mnt/gentoo/dev
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
-    sleep 3
+    sleep 5
     echo "Coping over chroot.sh into chroot"
     cp /root/Linux-shell-main/Gentoo/installer/scratch.in.chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
     chmod +x /mnt/gentoo/chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
