@@ -138,13 +138,13 @@ emerge --emptytree -a -1 @installed
 This should be done before the kernel compile.
 example picture of disk config to change for dracut.conf
 ```
-sda
-├──sda1     BDF2-0139
-└──sda2     0e86bef-30f8-4e3b-ae35-3fa2c6ae705b # UUID=BOOT_KEY_PARTITION_UUID
+/dev/sda
+ ├──sda1     BDF2-0139
+ └──sda2     0e86bef-30f8-4e3b-ae35-3fa2c6ae705b # UUID=BOOT_KEY_PARTITION_UUID
 /dev/nvme0n1 # root drive
  ├── /dev/nvmeon1p1
  |    └──  /dev/mapper/cryptswap  SWAP      
- └── /dev/nvme0n1p2 [ROOT]  (root) # Note that (root) need to be change to its match the LABEL from erlier
+ └── /dev/nvme0n1p2 [ROOT]  (BTROOT) # Note that (BTROOT) need to be change to its match the LABEL
       └──  /dev/mapper/cryptroot  /
 ```
 we need to add configurations to dracut in /etc/dracut.conf, and remember to change DRIVE_LABEL to the correct LABEL that you use for btrfs creation
