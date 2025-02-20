@@ -149,72 +149,51 @@ EOF
 }
 
 function Download_stage3file () {
-    # Define the base URL for the Gentoo stage-3 directory
-    BASE_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds/"
+    # URLs for the directories
+    HARDENED_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
+    SELINUX_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
 
-    # Temporary directory to store the recursive wget download
-    TEMP_DIR=$(mktemp -d)
+    # Function to fetch the latest tarball
+    fetch_latest_tarball() {
+        local url="$1"
+        echo "Searching for the latest tarball in: $url"
+    
+        latest_tarball=$(curl -s "$url" | grep -oE 'stage3-.*\.tar\.xz' | sort -V | tail -n 1)
+    
+        if [[ -n "$latest_tarball" ]]; then
+            echo "Latest tarball found: $latest_tarball"
+            echo "Full URL: ${url}${latest_tarball}"
+            echo "Do you want to download this file? (y/n)"
+            read -r choice
+            if [[ "$choice" == "y" ]]; then
+                wget "${url}${latest_tarball}"
+                wget "${url}${latest_tarball}.asc"
+                echo "Download complete."
+            else
+            echo "Download skipped."
+            fi
+        else
+            echo "No tarball found at $url"
+        fi
+    }
 
-    # Download all files recursively using wget
-    echo "Downloading the directory contents recursively..."
-    wget -r -l inf -np -nH --cut-dirs=5 --reject="index.html*" "$BASE_URL" -P "$TEMP_DIR" || { echo "FAILED to fetch stage3 files"; exit 1; }
+    # Let the user choose the type of tarball
+    echo "Select the tarball type to download:"
+    echo "1) Hardened Tarball"
+    echo "2) SELinux Tarball"
+    read -r selection
 
-    # Extract the hardened and hardened-selinux stage-3 tarballs from the downloaded files
-    HARDENED_TARBALLS=$(find "$TEMP_DIR" -type f -name 'stage3-amd64-hardened-[0-9]*.tar.xz')
-    HARDENED_SELINUX_TARBALLS=$(find "$TEMP_DIR" -type f -name 'stage3-amd64-hardened-selinux-[0-9]*.tar.xz')
-
-    # Check if we found any stage-3 tarballs
-    if [[ -z "$HARDENED_TARBALLS" && -z "$HARDENED_SELINUX_TARBALLS" ]]; then
-        echo "No hardened or hardened-selinux stage-3 tarballs found."
-        exit 1
-    fi
-
-    # Display the available tarballs to the user
-    echo "Available hardened stage-3 tarballs:"
-    echo "$HARDENED_TARBALLS"
-    echo ""
-    echo "Available hardened-selinux stage-3 tarballs:"
-    echo "$HARDENED_SELINUX_TARBALLS"
-    echo ""
-
-    # Let the user choose which version to download
-    echo "Please choose a version:"
-    echo "1. Hardened"
-    echo "2. Hardened-Selinux"
-    echo "3. Exit"
-    read -r -p "Enter the number of your choice: " CHOICE
-
-    case $CHOICE in
+    case "$selection" in
         1)
-            # Sort and select the latest hardened tarball
-            LATEST_HARDENED=$(echo "$HARDENED_TARBALLS" | sort | tail -n 1)
-            DOWNLOAD_URL="$LATEST_HARDENED"
-            SIGNATURE_URL="${LATEST_HARDENED}.asc"
-            echo "The latest hardened stage-3 tarball is: $LATEST_HARDENED"
-            echo "Downloading to the current directory..."
-        
-            # Download the tarball and the signature file to the current directory
-            cp "$LATEST_HARDENED" . || { echo "FAILED to copy stage3 file"; exit 1; }
-            cp "$SIGNATURE_URL" . || { echo "FAILED to copy stage3 file.asc"; exit 1; }
+            echo "Fetching latest hardened tarball..."
+            fetch_latest_tarball "$HARDENED_URL"
             ;;
         2)
-            # Sort and select the latest hardened-selinux tarball
-            LATEST_HARDENED_SELINUX=$(echo "$HARDENED_SELINUX_TARBALLS" | sort | tail -n 1)
-            DOWNLOAD_URL="$LATEST_HARDENED_SELINUX"
-            SIGNATURE_URL="${LATEST_HARDENED_SELINUX}.asc"
-            echo "The latest hardened-selinux stage-3 tarball is: $LATEST_HARDENED_SELINUX"
-            echo "Downloading to the current directory..."
-        
-            # Download the tarball and the signature file to the current directory
-            cp "$LATEST_HARDENED_SELINUX" . || { echo "FAILED to copy stage3 file"; exit 1; }
-            cp "$SIGNATURE_URL" . || { echo "FAILED to copy stage3 file.asc"; exit 1; }
-            ;;
-        3)
-            echo "Exiting..."
-            exit 0
+            echo "Fetching latest SELinux tarball..."
+            fetch_latest_tarball "$SELINUX_URL"
             ;;
         *)
-            echo "Invalid choice. Exiting..."
+            echo "Invalid selection. Exiting."
             exit 1
             ;;
     esac
