@@ -147,7 +147,7 @@ EOF
     echo "Mounting everything to /mnt/gentoo"
     mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
     mkdir /mnt/gentoo/{home,etc,var,log,tmp}
-    for sub in home etc var log tmp; do
+    for sub in home etc var log tmp efi; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
     done
 
@@ -185,9 +185,9 @@ function Download_stage3file() {
 
     if [[ "$user_input" =~ ^[Yy] ]]; then
         cd || { echo "failed to change directory to root"; exit 1 ; }
-        gpg --import /usr/share/openpgp-keys/gentoo-release.asc
+        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "failed import singniures"; exit 1 ; }
         sleep 5
-        gpg --verify stage3-*.tar.xz.asc stage3-*.tar.xz
+        gpg --verify stage3-*.tar.xz.asc stage3-*.tar.xz || { echo "failed to verify stage-*.tar.xz.asc with stage-*.tar.xz"; exit 1 ; }
 
         if [[ $? -ne 0 ]]; then
         echo "Exiting..."
