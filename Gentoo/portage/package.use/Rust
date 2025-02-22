@@ -1,2 +1,4 @@
-dev-lang/rust nightly rust-analyzer rust-src rustfmt #system-bootstrap
+# Rust lang 
+# remove the commen from system-bootstrap after emerge dev-lang/rust
+dev-lang/rust nightly rust-analyzer rust-src rustfmt #system-bootstrap 
 net-misc/curl http2 ssl
