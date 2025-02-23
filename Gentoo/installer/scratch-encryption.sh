@@ -266,7 +266,7 @@ function setup_chroot() {
     sleep 5
     echo "Coping over chroot.sh into chroot"
     cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
-    chmod +x /mnt/gentoo/chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
+    chmod +x /mnt/gentoo/scratch-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
     echo "everything is mounted and ready to chroot"
     echo "chrooting will be in 10 sec"
     echo "After the chroot is done it will be in another"
