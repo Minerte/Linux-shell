@@ -242,9 +242,6 @@ function config_boot() {
     ls -lh /efi/EFI/Gentoo/
 }
 
-read -r -p "Enter the disk you for Boot (e.g., /dev/sda): " selected_disk_Boot
-read -r -p "Enter the disk you for Root/swap(e.g., /dev/sda): " selected_disk
-validate_block_device "$selected_disk" "$selected_disk_Boot"
 chroot_first
 emerge_cpuid2cpuflags_and_emptytree
 core_package
