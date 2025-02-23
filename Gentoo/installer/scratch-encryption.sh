@@ -146,8 +146,8 @@ EOF
     # Creating and mounting to root
     echo "Mounting everything to /mnt/gentoo"
     mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
-    mkdir /mnt/gentoo/{home,etc,var,log,tmp}
-    for sub in home etc var log tmp efi; do
+    mkdir /mnt/gentoo/{home,etc,var,log,tmp,efi}
+    for sub in home etc var log tmp; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
     done
 
@@ -265,7 +265,7 @@ function setup_chroot() {
     mount --make-slave /mnt/gentoo/run
     sleep 5
     echo "Coping over chroot.sh into chroot"
-    cp /root/Linux-shell-main/Gentoo/installer/scratch.in.chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+    cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
     chmod +x /mnt/gentoo/chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
     echo "everything is mounted and ready to chroot"
     echo "chrooting will be in 10 sec"
