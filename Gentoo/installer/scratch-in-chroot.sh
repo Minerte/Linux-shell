@@ -155,7 +155,15 @@ function dracut_update() {
     fi
     # END BOOT
     echo "$kernel_cmdline is gone go to /etc/dracut.conf"
+    echo -e "Does the kernel_cmdline+= to /etc/dracut.conf look right? (y/n):"
+    read -r user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+    
     echo "kernel_cmdlin+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+    sleep 10
     dracut -v
 
     echo "Extracting the initramfs"
@@ -176,54 +184,23 @@ function kernel () {
 }
 
 function config_boot() {
+    echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
+    cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi
+    cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img
+
     echo "Configuring key to boot using /efi only"
+    local sel_disk="$1"
+    local sel_disk_boot="$2"
 
-    # Function to get UUID of a partition
-    get_uuid() {
-        local device="$1"
-        blkid -s UUID -o value "$device" 2>/dev/null
-    }
-
-    # Get UUIDs for root and swap partitions
-    ROOT_PART=$(findmnt -rn -o SOURCE --target /)
-    ROOT_UUID=$(get_uuid "$ROOT_PART")
-
-    SWAP_PART=$(findmnt -rn -o SOURCE --fstype swap)
-    SWAP_UUID=$(get_uuid "$SWAP_PART")
-
-    # Find the boot key partition dynamically (look for /efi or /boot_extended)
-    BOOT_KEY_PART=$(lsblk -o NAME,MOUNTPOINT -r | awk '$2 == "/efi" || $2 == "/boot_extended" {print "/dev/"$1; exit}')
-    BOOT_KEY_UUID=$(get_uuid "$BOOT_KEY_PART")
-
-    # Dynamically find the EFI partition
-    EFI_PART=$(lsblk -o NAME,MOUNTPOINT -r | awk '$2 == "/media/" {print "/dev/" $1; exit}')
-    if [[ -z "$EFI_PART" ]]; then
-        log "Error: Could not find the EFI partition."
-        exit 1
-    fi
-
-    # Verify all required UUIDs were found
-    if [[ -z "$ROOT_UUID" || -z "$SWAP_UUID" || -z "$BOOT_KEY_UUID" ]]; then
-        echo "Error: Could not find necessary partitions (Root, Swap, or Boot Key Partition)."
-        exit 1
-    fi
-
-    # Find kernel and initramfs inside /efi (NOT /boot)
-    KERNEL_SRC=$(find /efi/EFI/Gentoo/kernel-* 2>/dev/null | head -n 1)
-    INITRAMFS_SRC=$(find /efi/EFI/Gentoo/initramfs-* 2>/dev/null | head -n 1)
-
-    if [[ -z "$KERNEL_SRC" || -z "$INITRAMFS_SRC" ]]; then
-        echo "Error: Kernel or Initramfs not found in /efi/EFI/Gentoo."
-        exit 1
-    fi
-
+    SWAP_UUID=$(blkid "${sel_disk}1" -o value -s UUID)
+    ROOT_UUID=$(blkid "${sel_disk}2" -o value -s UUID)
+    BOOT_KEY_UUID=$(blkid "${sel_disk_boot}2" -o value -s UUID)
     sleep 3
-
     # Create EFI boot entry (using UUID for Boot Key Partition)
-    efibootmgr --create --disk boot --part boot \
+    efibootmgr --create --disk "$sel_disk_boot" --part 1 \
     --label "Gentoo" \
     --loader '\EFI\Gentoo\bzImage.efi' \
-    --unicode "root=UUID=$ROOT_UUID initrd=\EFI\Gentoo\initramfs.img rd.luks.key=UUID=$BOOT_KEY_UUID:/crypto_keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+    --unicode "root=UUID=$ROOT_UUID initrd=\EFI\Gentoo\initramfs.img rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
 
     if [[ $? -eq 0 ]]; then
         log "EFI boot entry created successfully."
@@ -231,15 +208,28 @@ function config_boot() {
         log "Error: Failed to create EFI boot entry."
         exit 1
     fi
-
     sleep 3
 
     # Verify EFI entry
     efibootmgr || { echo "Could not create boot entry"; exit 1; }
+    echo -e "Does the efibootmgr look right? (y/n):"
+    read -r user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
     sleep 3
 
     # List files in EFI directory
     ls -lh /efi/EFI/Gentoo/
+    echo -e "Does the /efi/EFI/Gentoo look right? (y/n):"
+    read -r user_input
+
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+    sleep 3
 }
 
 read -r -p "Enter the Boot disk (e.g., /dev/sda): " selected_disk_Boot
