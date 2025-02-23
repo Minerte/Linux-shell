@@ -24,14 +24,9 @@ function find_uuid() {
 
 function chroot_first() {
     echo "Setting up chroot environment..."
+    local sel_disk_boot="$1"
 
-    sel_disk_boot=$(lsblk -r -o NAME,MOUNTPOINT | awk '$2 == "/efi" {print "/dev/" $1; exit}')
-    
-    if [[ -z "$sel_disk_boot" ]]; then
-        echo "Error: Could not find the boot disk for /efi."
-        exit 1
-    fi
-
+    # shellcheck disable=SC1091
     source /etc/profile
     export PS1="(chroot) ${PS1}"
 
@@ -62,6 +57,7 @@ function chroot_first() {
         exit 1
     fi
 
+    # shellcheck disable=SC1091
     env-update && source /etc/profile
     export PS1="(chroot) ${PS1}"
 
@@ -111,54 +107,62 @@ function core_package () {
 
 # Needs to do before kernel setup
 function dracut_update() {
-
     echo "Updating dracut and preparing initramfs for kernel build..."
-
-    # Function to get UUID of a partition
-    get_uuid() {
-        local device="$1"
-        blkid -s UUID -o value "$device" 2>/dev/null
-    }
-
-    # Find root partition and UUID (inside the chroot)
-    ROOT_PART=$(findmnt -rn -o SOURCE --target /)
-    ROOT_UUID=$(get_uuid "$ROOT_PART")
-
-    # Find swap partition and UUID
-    SWAP_PART=$(findmnt -rn -o SOURCE --fstype swap)
-    SWAP_UUID=$(get_uuid "$SWAP_PART")
-
-    # Find the boot key partition dynamically (look for /efi or /boot_extended)
-    BOOT_KEY_PART=$(lsblk -o NAME,MOUNTPOINT -r | awk '$2 == "/efi" || $2 == "/boot_extended" {print "/dev/"$1; exit}')
-    BOOT_KEY_UUID=$(get_uuid "$BOOT_KEY_PART")
-
-    # Find root partition label (optional)
-    ROOT_LABEL=$(blkid -s LABEL -o value "$ROOT_PART" 2>/dev/null)
-
-    # Check if all required UUIDs were found
-    if [[ -z "$ROOT_UUID" || -z "$SWAP_UUID" || -z "$BOOT_KEY_UUID" ]]; then
-        echo "Error: Could not find required partitions (Root, Swap, or Boot Key Partition)."
-        exit 1
-    fi
-
+    local sel_disk="$1"
+    local sel_disk_boot="$2"
+    
+    echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
     add_dracutmodules+=" crypt crypt-gpg dm rootfs-block "
+    kernel_cmdline=""
 
-    # Build kernel command line
-    kernel_cmdline+=" root=LABEL=$ROOT_LABEL"
-    kernel_cmdline+=" rd.luks.uuid=$ROOT_UUID"
-    kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$BOOT_KEY_UUID"
-    kernel_cmdline+=" rd.luks.uuid=$SWAP_UUID"
-    kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$BOOT_KEY_UUID"
+    # FOR SWAP
+    swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
+    if [ -z "$swapuuid" ]; then
+        echo "No UUID found for ${sel_disk}1 (SWAP)"
+    else
+        kernel_cmdline+=" rd.luks.uuid=$swapuuid"
+        echo "The swap UUID is set to: $swapuuid"
+    fi
+    # END SWAP
+
+    # FOR ROOT
+    rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
+    if [ -z "$rootlabel" ]; then
+        echo "No label found for ${sel_disk}2 (ROOT)"
+    else
+        kernel_cmdline+=" root=LABEL=$rootlabel"
+        echo "The root LABEL is set to: $rootlabel"
+    fi
+
+    rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
+    if [ -z "$rootuuid" ]; then
+        echo "No UUID found for ${sel_disk}2 (ROOT)"
+    else
+        kernel_cmdline+=" rd.luks.uuid=$rootuuid"
+        echo "The root UUID is set to: $rootuuid"
+    fi
+    # END ROOT
+
+    # FOR BOOT (KEYFILE)
+    boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+    if [ -z "$boot_key_uuid" ]; then
+        echo "No UUID found for ${sel_disk_boot}2 (KEYFILE STORAGE)"
+    else
+        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
+        kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
+        echo "The keyfile storage UUID is set to: $boot_key_uuid"
+    fi
+    # END BOOT
+    echo "$kernel_cmdline is gone go to /etc/dracut.conf"
+    echo "kernel_cmdlin+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+    dracut -v
 
     echo "Extracting the initramfs"
     cd /usr/src/initramfs || { echo "failed to change directory"; exit 1; }
     echo "It's possible to use dracut to generate an initramfs image, then extract this to be built into the kernel."
     /usr/lib/dracut/skipcpio /boot/initramfs-6.1.28-gentoo-initramfs.img | zcat | cpio -ivd || { echo "could not extract"; exit 1; }
     cd || { echo "changing back to root"; exit 1; }
-    
-    echo "Kernel command line generated:"
-    echo "$kernel_cmdline"
 }
 
 function kernel () {
@@ -198,10 +202,6 @@ function config_boot() {
         exit 1
     fi
 
-    # Extract disk and partition number from the EFI partition
-    EFI_DISK=$(search "$EFI_PART" | sed 's/[0-9]*$//')
-    EFI_PART_NUM=$(echo "$EFI_PART" | grep -o '[0-9]*$')
-
     # Verify all required UUIDs were found
     if [[ -z "$ROOT_UUID" || -z "$SWAP_UUID" || -z "$BOOT_KEY_UUID" ]]; then
         echo "Error: Could not find necessary partitions (Root, Swap, or Boot Key Partition)."
@@ -220,7 +220,7 @@ function config_boot() {
     sleep 3
 
     # Create EFI boot entry (using UUID for Boot Key Partition)
-    efibootmgr --create --disk $EFI_DISK --part $EFI_PART_NUM \
+    efibootmgr --create --disk boot --part boot \
     --label "Gentoo" \
     --loader '\EFI\Gentoo\bzImage.efi' \
     --unicode "root=UUID=$ROOT_UUID initrd=\EFI\Gentoo\initramfs.img rd.luks.key=UUID=$BOOT_KEY_UUID:/crypto_keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
@@ -242,9 +242,12 @@ function config_boot() {
     ls -lh /efi/EFI/Gentoo/
 }
 
-chroot_first
+read -r -p "Enter the Boot disk (e.g., /dev/sda): " selected_disk_Boot
+read -r -p "Enter the Root disk (e.g., /dev/sda): " selected_disk
+validate_block_device "$selected_disk_Boot" "$selected_disk"
+chroot_first "$selected_disk_Boot"
 emerge_cpuid2cpuflags_and_emptytree
 core_package
-dracut_update
+dracut_update "$selected_disk" "$selected_disk_Boot"
 kernel
-config_boot
+config_boot "$selected_disk" "$selected_disk_Boot"
