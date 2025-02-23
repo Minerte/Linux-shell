@@ -37,8 +37,8 @@ function chroot_first() {
     fi
 
     echo "Syncing with Gentoo mirrors..."
-    if ! emerge --webrsync; then
-        echo "Failed to run webrsync"
+    if ! emerge-webrsync; then
+        echo "Failed to run emerge-webrsync"
         exit 1
     fi
 
@@ -68,7 +68,7 @@ function emerge_cpuid2cpuflags_and_emptytree () {
 
     # Adds cpuflag to make.conf
     echo "emerge cpuid2cpuflags"
-    emerge --ask app-portage/cpuid2cpuflags
+    emerge --ask --oneshot app-portage/cpuid2cpuflags
     sleep 5
     echo "Adding flag to make.conf"
     CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
@@ -98,7 +98,7 @@ function core_package () {
     emerge --ask sys-kernel/gentoo-source sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
     sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinint sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
     sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
-    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr || { echo "Could not merge! check dependency and flags"; exit 1; }
+    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware || { echo "Could not merge! check dependency and flags"; exit 1; }
 
     echo "Core packages installed succesfully!"
     mkdir /efi/EFI/Gentoo
@@ -161,7 +161,7 @@ function dracut_update() {
         echo "Exiting..."
         exit 1
     fi
-    
+
     echo "kernel_cmdlin+=\"$kernel_cmdline\"" >> /etc/dracut.conf
     sleep 10
     dracut -v
