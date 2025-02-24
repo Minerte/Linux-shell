@@ -165,14 +165,9 @@ function dracut_update() {
     fi
 
     echo "kernel_cmdlin+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+    echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /et/dracut.conf
     sleep 10
     dracut -v
-
-    echo "Extracting the initramfs"
-    cd /usr/src/initramfs || { echo "failed to change directory"; exit 1; }
-    echo "It's possible to use dracut to generate an initramfs image, then extract this to be built into the kernel."
-    /usr/lib/dracut/skipcpio /boot/initramfs-6.1.28-gentoo-initramfs.img | zcat | cpio -ivd || { echo "could not extract"; exit 1; }
-    cd || { echo "changing back to root"; exit 1; }
 
 }
 
@@ -185,6 +180,7 @@ function kernel () {
     genkernel --luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "Could not start/install genkernel"; exit 1; }
     sleep 10
     echo "kernel completed"
+    
 }
 
 function config_boot() {
@@ -235,6 +231,7 @@ function config_boot() {
         exit 1
     fi
     sleep 3
+
 }
 
 function emerge_extra () {
