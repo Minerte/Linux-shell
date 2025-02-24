@@ -173,6 +173,7 @@ function dracut_update() {
     echo "It's possible to use dracut to generate an initramfs image, then extract this to be built into the kernel."
     /usr/lib/dracut/skipcpio /boot/initramfs-6.1.28-gentoo-initramfs.img | zcat | cpio -ivd || { echo "could not extract"; exit 1; }
     cd || { echo "changing back to root"; exit 1; }
+
 }
 
 function kernel () {
@@ -255,3 +256,4 @@ core_package
 dracut_update "$selected_disk" "$selected_disk_Boot"
 kernel
 config_boot "$selected_disk" "$selected_disk_Boot"
+emerge_extra
