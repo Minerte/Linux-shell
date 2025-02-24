@@ -23,6 +23,7 @@ function find_uuid() {
 }
 
 function chroot_first() {
+
     echo "Setting up chroot environment..."
     local sel_disk_boot="$1"
 
@@ -80,7 +81,7 @@ function emerge_cpuid2cpuflags_and_emptytree () {
     sleep 5
     echo "re-compiling existing package"
     sleep 5
-    emerge --emptytree -a -1 @installed  || { echo "Dont want to re-compile check dependency and flags"; exit 1; }
+    emerge --emptytree -a -1 @installed  || { echo "Re-compile failed check dependency and flags"; exit 1; }
     sleep 10
     echo "Cpuflags added and recompile apps"
     echo "Completted succesfully"
@@ -95,10 +96,10 @@ function emerge_cpuid2cpuflags_and_emptytree () {
 function core_package () {
 
     echo "emerging core packages!"
-    emerge --ask sys-kernel/gentoo-source sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
-    sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinint sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
+    emerge --ask sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
+    sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
     sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
-    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware || { echo "Could not merge! check dependency and flags"; exit 1; }
+    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware || { echo "Could not merge! check dependency and flags (emerge core)"; exit 1; }
 
     echo "Core packages installed succesfully!"
     mkdir /efi/EFI/Gentoo
@@ -107,6 +108,7 @@ function core_package () {
 
 # Needs to do before kernel setup
 function dracut_update() {
+
     echo "Updating dracut and preparing initramfs for kernel build..."
     local sel_disk="$1"
     local sel_disk_boot="$2"
@@ -174,6 +176,7 @@ function dracut_update() {
 }
 
 function kernel () {
+
     echo "This will start a session that user can edit the kernel"
     echo "the flags use in the config is:"
     echo "--luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
@@ -184,6 +187,7 @@ function kernel () {
 }
 
 function config_boot() {
+
     echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
     cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi
     cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img
@@ -230,6 +234,16 @@ function config_boot() {
         exit 1
     fi
     sleep 3
+}
+
+function emerge_extra () {
+
+    echo "Download extra packages"
+    emerge --ask app-editors/neovim app-admin/doas x11-terms/alacritty app-misc/tmux || { echo "Could not merge! check dependency and flags (emerge extra)"; exit 1; }
+
+    echo "Making root passpwd"
+    passpwd
+
 }
 
 read -r -p "Enter the Boot disk (e.g., /dev/sda): " selected_disk_Boot
