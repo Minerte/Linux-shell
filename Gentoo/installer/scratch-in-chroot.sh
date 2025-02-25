@@ -299,8 +299,8 @@ function dracut_update() {
         echo "Exiting..."
         exit 1
     fi
-    echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
-    echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
+    echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf || { echo "Failed to mobe kernel_cmdline to /etc/dracut.conf"; exit 1; }
+    echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf || { echo "Failed to mobe add_dracutmodules to /etc/dracut.conf"; exit 1; }
     sleep 3
     dracut -v
 
