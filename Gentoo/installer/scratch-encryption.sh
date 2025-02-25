@@ -162,23 +162,24 @@ EOF
 function Download_stage3file() {
 
     cd / || { echo "Failed to change directory to root"; exit 1; }
+
     echo "------------------------------------------------------------------------"
     echo "Please don't exit the link menu before the download is completed."
     echo "Select your chosen stage3 file from the Gentoo mirrors page."
-    echo "The Verification file will automatically download, macthing stage3 file"
+    echo "The verification file will automatically download, matching the stage3 file."
     echo "------------------------------------------------------------------------"
     sleep 10
 
+    # Open the Gentoo mirrors page for user selection
     links https://www.gentoo.org/downloads/mirrors/
     sleep 3
 
     echo "Searching for stage3-*.tar.xz files in the root directory..."
     STAGE3_FILE=$(find / -type f -name "stage3-*.tar.xz" 2>/dev/null | head -n 1)
-    mv "$STAGE3_FILE" / || { echo "Failed to move stage file to root"; exit 1; }
 
     # Check if a stage3 file was found
     if [[ -z "$STAGE3_FILE" ]]; then
-        echo "No stage3-*.tar.xz file found in the root directory."
+        echo "No stage3-*.tar.xz file found. Ensure the download is complete."
         exit 1
     fi
 
@@ -186,6 +187,13 @@ function Download_stage3file() {
     STAGE3_FILENAME=$(basename "$STAGE3_FILE")
 
     DOWNLOAD_DIR="/"
+
+    # Move stage3 file to / if it's in another location
+    if [[ "$STAGE3_FILE" != "/$STAGE3_FILENAME" ]]; then
+        echo "Moving $STAGE3_FILE to $DOWNLOAD_DIR ..."
+        mv "$STAGE3_FILE" "$DOWNLOAD_DIR" || { echo "Failed to move stage3 file to /"; exit 1; }
+        STAGE3_FILE="$DOWNLOAD_DIR$STAGE3_FILENAME"
+    fi
 
     BOUNCER_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds"
     ASC_FILENAME="${STAGE3_FILENAME}.asc"
@@ -198,12 +206,12 @@ function Download_stage3file() {
         echo "Downloading .asc file to / ..."
         curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
         
+        # Ensure the .asc file is not empty
         if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
             echo "Downloaded .asc file is empty! Retrying..."
             rm -f "$DOWNLOAD_DIR$ASC_FILENAME"
             sleep 2
             curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to re-download .asc file"; exit 1; }
-            # Check again after retry
             if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
                 echo "Re-downloaded .asc file is still empty. Exiting..."
                 exit 1
@@ -216,23 +224,26 @@ function Download_stage3file() {
         exit 1
     fi
 
-    read -rp "\nDo you want to verify the stage3 file? (y/n): " user_input
-    if [[ "$user_input" =~ ^[Yy] ]]; then
+    # Ask user for verification
+    read -rp "Do you want to verify the stage3 file? (y/n): " user_input
+    if [[ "$user_input" =~ ^[Yy]$ ]]; then
         echo "Importing Gentoo release key..."
-        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910  || { echo "Failed keyserver"; exit 1; }
-        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import signatures"; exit 1; }
+        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import Gentoo release key"; exit 1; }
+        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
         sleep 3
+
         echo "Verifying stage3 file..."
         gpg --debug-level guru --verify "$DOWNLOAD_DIR$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
 
-        if [[ $? -eq 0 ]]; then
-            echo "Verification successful!"
-        else
-            echo "Verification failed. Exiting..."
-            exit 1
-        fi
+        echo "Verification successful!"
     else
         echo "Skipping verification."
+    fi
+
+    # Ensure /mnt/gentoo exists before extracting
+    if [[ ! -d /mnt/gentoo ]]; then
+        echo "Creating /mnt/gentoo ..."
+        mkdir -p /mnt/gentoo || { echo "Failed to create /mnt/gentoo"; exit 1; }
     fi
 
     sleep 3
@@ -242,7 +253,6 @@ function Download_stage3file() {
 
     echo "Gentoo stage3 file setup complete."
     echo "Success!"
-
 }
 
 function config_system () {
