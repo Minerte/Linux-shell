@@ -161,7 +161,7 @@ function Download_and_Verify_stage3() {
     cd / || { echo "Failed to change directory to root"; exit 1; }
 
     # Define the Bouncer URL and the type of stage3 file
-    BOUNCER_URL="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc"
+    BOUNCER_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
 
     echo "------------------------------------------------------------------------"
     echo "Fetching the latest stage3 file for stage3-amd64-hardened-openrc..."
@@ -183,19 +183,9 @@ function Download_and_Verify_stage3() {
         exit 1
     fi
 
-    # Automatically select the fastest Gentoo mirror
-    MIRROR=$(mirrorselect -s3 -o -q -D)
-    if [[ -z "$MIRROR" ]]; then
-        echo "Failed to select a Gentoo mirror. Exiting..."
-        exit 1
-    fi
-
-    echo "Selected mirror: $MIRROR"
-    export GENTOO_MIRRORS="$MIRROR"
-
     # Correct the URLs for downloading files
-    STAGE3_URL="$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$STAGE3_FILENAME"
-    ASC_URL="$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$ASC_FILENAME"
+    STAGE3_URL="$BOUNCER_URL/$STAGE3_FILENAME"
+    ASC_URL="$BOUNCER_URL/$ASC_FILENAME"
 
     # Download the stage3 file
     echo "Downloading stage3 file: $STAGE3_FILENAME"
