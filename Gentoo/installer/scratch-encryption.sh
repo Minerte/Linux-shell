@@ -161,22 +161,27 @@ function Download_and_Verify_stage3() {
     cd / || { echo "Failed to change directory to root"; exit 1; }
 
     # Define the Bouncer URL and the type of stage3 file
-    BOUNCER_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds"
-    STAGE3_TYPE="stage3-amd64-hardened"
+    BOUNCER_URL="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc"
 
     echo "------------------------------------------------------------------------"
-    echo "Fetching the latest stage3 file for $STAGE3_TYPE..."
+    echo "Fetching the latest stage3 file for stage3-amd64-hardened-openrc..."
     echo "------------------------------------------------------------------------"
 
-    # Retrieve the latest stage3 file information
-    LATEST_FILE=$(curl -s "$BOUNCER_URL/latest-$STAGE3_TYPE.txt" | grep -v "^#" | awk '{print $1}')
-    if [[ -z "$LATEST_FILE" ]]; then
-        echo "Failed to retrieve the latest $STAGE3_TYPE file information. Exiting..."
+    # Retrieve the list of files from the Bouncer URL
+    FILE_LIST=$(curl -s "$BOUNCER_URL/")
+    if [[ -z "$FILE_LIST" ]]; then
+        echo "Failed to retrieve the list of files. Exiting..."
         exit 1
     fi
 
-    STAGE3_FILENAME=$(basename "$LATEST_FILE")
+    # Find the latest stage3 file and its corresponding .asc file
+    STAGE3_FILENAME=$(echo "$FILE_LIST" | grep -oP 'stage3-amd64-hardened-openrc-\d{8}T\d{6}Z\.tar\.xz' | tail -n 1)
     ASC_FILENAME="${STAGE3_FILENAME}.asc"
+
+    if [[ -z "$STAGE3_FILENAME" || -z "$ASC_FILENAME" ]]; then
+        echo "Failed to find the latest stage3 file or its .asc file. Exiting..."
+        exit 1
+    fi
 
     # Automatically select the fastest Gentoo mirror
     MIRROR=$(mirrorselect -s3 -o -q -D)
@@ -190,11 +195,11 @@ function Download_and_Verify_stage3() {
 
     # Download the stage3 file
     echo "Downloading stage3 file: $STAGE3_FILENAME"
-    curl -O "$MIRROR/releases/amd64/autobuilds/$LATEST_FILE" || { echo "Failed to download stage3 file"; exit 1; }
+    curl -O "$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$STAGE3_FILENAME" || { echo "Failed to download stage3 file"; exit 1; }
 
     # Download the .asc file
     echo "Downloading verification file: $ASC_FILENAME"
-    curl -O "$MIRROR/releases/amd64/autobuilds/$ASC_FILENAME" || { echo "Failed to download .asc file"; exit 1; }
+    curl -O "$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$ASC_FILENAME" || { echo "Failed to download .asc file"; exit 1; }
 
     # Ensure the files are not empty
     if [[ ! -s "$STAGE3_FILENAME" || ! -s "$ASC_FILENAME" ]]; then
