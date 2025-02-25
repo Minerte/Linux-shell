@@ -82,6 +82,8 @@ EOF
     cd /media/ex-usb || { echo "Failed to change directory"; exit 1;}
     # End of prep for boot disk
 
+    export GPG_TTY=$(tty)
+
     # Start prep for swap partition
     echo "Generating random keyfile"
     dd if=/dev/urandom of=swap-keyfile bs=8388608 count=1 || { echo "Could not generate key for swap-keyfile"; exit 1; }
@@ -204,8 +206,8 @@ function Download_stage3file() {
     if [[ "$user_input" =~ ^[Yy] ]]; then
         echo "Importing Gentoo release key..."
         gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import signatures"; exit 1; }
+        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910
         sleep 3
-
         echo "Verifying stage3 file..."
         gpg --verify "$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
 
