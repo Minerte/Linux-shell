@@ -174,6 +174,7 @@ function Download_stage3file() {
 
     echo "Searching for stage3-*.tar.xz files in the root directory..."
     STAGE3_FILE=$(find / -type f -name "stage3-*.tar.xz" 2>/dev/null | head -n 1)
+    mv "$STAGE3_FILE" / || { echo "Failed to move stage file to root"; exit 1; }
 
     # Check if a stage3 file was found
     if [[ -z "$STAGE3_FILE" ]]; then
@@ -182,11 +183,11 @@ function Download_stage3file() {
     fi
 
     echo "Found stage3 file: $STAGE3_FILE"
+    STAGE3_FILENAME=$(basename "$STAGE3_FILE")
+
+    DOWNLOAD_DIR="/"
 
     BOUNCER_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds"
-
-    # Extract the filename from the path
-    STAGE3_FILENAME=$(basename "$STAGE3_FILE")
     ASC_FILENAME="${STAGE3_FILENAME}.asc"
     ASC_URL="${BOUNCER_URL}/${ASC_FILENAME}"
 
@@ -194,8 +195,21 @@ function Download_stage3file() {
     echo "Searching for .asc file: $ASC_FILENAME"
     if curl --output /dev/null --silent --head --fail "$ASC_URL"; then
         echo "Found .asc file at: $ASC_URL"
-        echo "Downloading .asc file..."
-        curl -O "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
+        echo "Downloading .asc file to / ..."
+        curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
+        
+        if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
+            echo "Downloaded .asc file is empty! Retrying..."
+            rm -f "$DOWNLOAD_DIR$ASC_FILENAME"
+            sleep 2
+            curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to re-download .asc file"; exit 1; }
+            # Check again after retry
+            if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
+                echo "Re-downloaded .asc file is still empty. Exiting..."
+                exit 1
+            fi
+        fi
+
         echo "Download complete: $ASC_FILENAME"
     else
         echo "No .asc file found for $STAGE3_FILENAME"
@@ -205,11 +219,11 @@ function Download_stage3file() {
     read -rp "\nDo you want to verify the stage3 file? (y/n): " user_input
     if [[ "$user_input" =~ ^[Yy] ]]; then
         echo "Importing Gentoo release key..."
+        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910  || { echo "Failed keyserver"; exit 1; }
         gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import signatures"; exit 1; }
-        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910
         sleep 3
         echo "Verifying stage3 file..."
-        gpg --verify "$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
+        gpg --debug-level guru --verify "$DOWNLOAD_DIR$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
 
         if [[ $? -eq 0 ]]; then
             echo "Verification successful!"
@@ -312,12 +326,6 @@ echo "If you look at the source code you will understand."
 echo "For this is almost just a basic Gentoo install because of the packages."
 echo "And the disk configuration is very hardcoded hehehehe ;)"
 echo "Lets start!!!"
-echo "5....."
-echo "4...."
-echo "3..."
-echo "2.."
-echo "1."
-echo "GOOOOOOO!!!!!!"
 
 list_disks
 echo "-------------------------------------------------------------------------------------"
