@@ -157,100 +157,62 @@ EOF
 
 }
 
-function Download_stage3file() {
-
+function Download_and_Verify_stage3() {
     cd / || { echo "Failed to change directory to root"; exit 1; }
 
-    echo "------------------------------------------------------------------------"
-    echo "Please don't exit the link menu before the download is completed."
-    echo "Select your chosen stage3 file from the Gentoo mirrors page."
-    echo "The verification file will automatically download, matching the stage3 file."
-    echo "------------------------------------------------------------------------"
-    sleep 10
-
-    # Open the Gentoo mirrors page for user selection
-    links https://www.gentoo.org/downloads/mirrors/
-    sleep 3
-
-    echo "Searching for stage3-*.tar.xz files in the root directory..."
-    STAGE3_FILE=$(find / -type f -name "stage3-*.tar.xz" 2>/dev/null | head -n 1)
-
-    # Check if a stage3 file was found
-    if [[ -z "$STAGE3_FILE" ]]; then
-        echo "No stage3-*.tar.xz file found. Ensure the download is complete."
-        exit 1
-    fi
-
-    echo "Found stage3 file: $STAGE3_FILE"
-    STAGE3_FILENAME=$(basename "$STAGE3_FILE")
-
-    DOWNLOAD_DIR="/"
-
-    # Move stage3 file to / if it's in another location
-    if [[ "$STAGE3_FILE" != "/$STAGE3_FILENAME" ]]; then
-        echo "Moving $STAGE3_FILE to $DOWNLOAD_DIR ..."
-        mv "$STAGE3_FILE" "$DOWNLOAD_DIR" || { echo "Failed to move stage3 file to /"; exit 1; }
-        STAGE3_FILE="$DOWNLOAD_DIR$STAGE3_FILENAME"
-    fi
-
+    # Define the Bouncer URL and the type of stage3 file
     BOUNCER_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds"
-    ASC_FILENAME="${STAGE3_FILENAME}.asc"
-    ASC_URL="${BOUNCER_URL}/${ASC_FILENAME}"
+    STAGE3_TYPE="stage3-amd64-hardened"
 
-    # Search for and download the .asc file
-    echo "Searching for .asc file: $ASC_FILENAME"
-    if curl --output /dev/null --silent --head --fail "$ASC_URL"; then
-        echo "Found .asc file at: $ASC_URL"
-        echo "Downloading .asc file to / ..."
-        curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
-        
-        # Ensure the .asc file is not empty
-        if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
-            echo "Downloaded .asc file is empty! Retrying..."
-            rm -f "$DOWNLOAD_DIR$ASC_FILENAME"
-            sleep 2
-            curl -o "$DOWNLOAD_DIR$ASC_FILENAME" "$ASC_URL" || { echo "Failed to re-download .asc file"; exit 1; }
-            if [[ ! -s "$DOWNLOAD_DIR$ASC_FILENAME" ]]; then
-                echo "Re-downloaded .asc file is still empty. Exiting..."
-                exit 1
-            fi
-        fi
+    echo "------------------------------------------------------------------------"
+    echo "Fetching the latest stage3 file for $STAGE3_TYPE..."
+    echo "------------------------------------------------------------------------"
 
-        echo "Download complete: $ASC_FILENAME"
-    else
-        echo "No .asc file found for $STAGE3_FILENAME"
+    # Retrieve the latest stage3 file information
+    LATEST_FILE=$(curl -s "$BOUNCER_URL/latest-$STAGE3_TYPE.txt" | grep -v "^#" | awk '{print $1}')
+    if [[ -z "$LATEST_FILE" ]]; then
+        echo "Failed to retrieve the latest $STAGE3_TYPE file information. Exiting..."
         exit 1
     fi
 
-    # Ask user for verification
-    read -rp "Do you want to verify the stage3 file? (y/n): " user_input
-    if [[ "$user_input" =~ ^[Yy]$ ]]; then
-        echo "Importing Gentoo release key..."
-        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import Gentoo release key"; exit 1; }
-        gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
-        sleep 3
+    STAGE3_FILENAME=$(basename "$LATEST_FILE")
+    ASC_FILENAME="${STAGE3_FILENAME}.asc"
 
-        echo "Verifying stage3 file..."
-        gpg --debug-level guru --verify "$DOWNLOAD_DIR$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
-
-        echo "Verification successful!"
-    else
-        echo "Skipping verification."
+    # Automatically select the fastest Gentoo mirror
+    MIRROR=$(mirrorselect -s3 -o -q -D)
+    if [[ -z "$MIRROR" ]]; then
+        echo "Failed to select a Gentoo mirror. Exiting..."
+        exit 1
     fi
 
-    # Ensure /mnt/gentoo exists before extracting
-    if [[ ! -d /mnt/gentoo ]]; then
-        echo "Creating /mnt/gentoo ..."
-        mkdir -p /mnt/gentoo || { echo "Failed to create /mnt/gentoo"; exit 1; }
+    echo "Selected mirror: $MIRROR"
+    export GENTOO_MIRRORS="$MIRROR"
+
+    # Download the stage3 file
+    echo "Downloading stage3 file: $STAGE3_FILENAME"
+    curl -O "$MIRROR/releases/amd64/autobuilds/$LATEST_FILE" || { echo "Failed to download stage3 file"; exit 1; }
+
+    # Download the .asc file
+    echo "Downloading verification file: $ASC_FILENAME"
+    curl -O "$MIRROR/releases/amd64/autobuilds/$ASC_FILENAME" || { echo "Failed to download .asc file"; exit 1; }
+
+    # Ensure the files are not empty
+    if [[ ! -s "$STAGE3_FILENAME" || ! -s "$ASC_FILENAME" ]]; then
+        echo "Downloaded files are empty. Exiting..."
+        exit 1
     fi
 
-    sleep 3
-    echo "Extracting stage3 file..."
-    tar xpvf "$STAGE3_FILE" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract $STAGE3_FILE"; exit 1; }
-    sleep 3
+    echo "Download complete: $STAGE3_FILENAME and $ASC_FILENAME"
 
-    echo "Gentoo stage3 file setup complete."
-    echo "Success!"
+    # Verify the stage3 file with the .asc file
+    echo "Importing Gentoo release key..."
+    gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import Gentoo release key"; exit 1; }
+    gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
+
+    echo "Verifying stage3 file..."
+    gpg --debug-level guru --verify "$ASC_FILENAME" "$STAGE3_FILENAME" || { echo "Failed to verify $STAGE3_FILENAME with $ASC_FILENAME"; exit 1; }
+
+    echo "Verification successful!"
 }
 
 function config_system () {
@@ -345,7 +307,7 @@ read -r -p "Enter the disk you want to partition and format for Boot (e.g., /dev
 read -r -p "Enter the disk you want to partition and format for Root/swap(e.g., /dev/sda): " selected_disk
 validate_block_device "$selected_disk" "$selected_disk_Boot"
 setup_disk "$selected_disk" "$selected_disk_Boot"
-Download_stage3file
+Download_and_Verify_stage3
 config_system
 config_portage
 setup_chroot
