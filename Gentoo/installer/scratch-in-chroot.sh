@@ -6,12 +6,6 @@ if [ "$(id -u)" != "0" ]; then
     exit 1
 fi
 
-# List available disks
-function list_disks() {
-    echo "Available disks:"
-    lsblk -d -n -o NAME,SIZE,UUID,LABEL | awk '{print "/dev/" $1 " - " $2}'
-}
-
 # Validate block device
 function validate_block_device() {
     local device="$1"
@@ -21,329 +15,379 @@ function validate_block_device() {
     fi
 }
 
-function setup_disk() {
+function chroot_first() {
 
+    echo "Setting up chroot environment..."
+    local sel_disk_boot="$1"
+
+    # shellcheck disable=SC1091
+    source /etc/profile
+    export PS1="(chroot) ${PS1}"
+
+    # Mount the boot partition to /efi
+    if ! mount "${sel_disk_boot}1" /efi; then
+        echo "Failed to mount boot disk (${sel_disk_boot}1) to /efi"
+        exit 1
+    fi
+
+    echo "Syncing with Gentoo mirrors..."
+    if ! emerge-webrsync; then
+        echo "Failed to run emerge-webrsync"
+        exit 1
+    fi
+
+    if ! emerge --sync --quiet; then
+        echo "Failed to run --sync --quiet"
+        exit 1
+    fi
+
+    if ! emerge --config sys-libs/timezone-data; then
+        echo "Failed to configure timezone-data"
+        exit 1
+    fi
+
+    if ! locale-gen; then
+        echo "Failed to generate locale"
+        exit 1
+    fi
+
+    # shellcheck disable=SC1091
+    env-update && source /etc/profile
+    export PS1="(chroot) ${PS1}"
+
+    echo "Chroot environment setup complete!"
+}
+
+function remerge_and_core_package () {
+
+    # Adds cpuflag to make.conf
+    echo "emerge cpuid2cpuflags"
+    emerge --ask --oneshot app-portage/cpuid2cpuflags
+    sleep 3
+    echo "Adding flag to make.conf"
+    CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
+    if grep -q "^CPU_FLAGS_X86=" /etc/portage/make.conf; then
+        sed -i "s/^CPU_FLAGS_X86=.*/CPU_FLAGS_X86=\"${CPU_FLAGS}\"/" /etc/portage/make.conf  || { echo "could not add CPU_FLAGS_X86= and cpuflags to make.conf"; exit 1; }
+    else
+        echo "CPU_FLAGS_X86=\"${CPU_FLAGS}\"" >> /etc/portage/make.conf || { echo "could not add cpuflags to make.conf"; exit 1; }
+    fi
+    sleep 3
+    echo "re-compiling existing package"
+    sleep 3
+    emerge --emptytree -a -1 @installed  || { echo "Re-compile failed check dependency and flags"; exit 1; }
+    sleep 5
+    echo "Cpuflags added and recompile apps"
+    echo "Completted succesfully"
+    sleep 3
+
+    emerge --ask dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
+    sleep 3
+    echo "enable system-bootstrap in /etc/portage/package.use/Rust"
+    sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
+
+    echo "emerging core packages!"
+    sleep 3
+    emerge --ask sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
+    sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
+    sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
+    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware \
+    app-editors/neovim app-arch/unzip || { echo "Could not merge! check dependency and flags (emerge core)"; exit 1; }
+
+    echo "Core packages installed succesfully!"
+    mkdir /efi/EFI/Gentoo
+
+}
+
+# Needs to do before kernel setup
+
+
+function openrc_runtime () {
+
+    echo "updating openrc init"
+    echo "remove runtime"
+    rc-service dhcpcd stop || { echo "rc-service dhcpcd stop failed"; exit 1; }
+    rc-update del dhcpcd default || { echo "rc-update del dhcpcd default failed"; exit 1; }
+    rc-update del hostname boot || { echo "rc-update del hostname boot failed"; exit 1; }
+    sleep 3
+
+    echo "default level"
+    rc-update add dbus default || { echo "rc-update add dbus default failed"; exit 1; }
+    rc-updtae add seatd default || { echo "rc-updtae add seatd default failed"; exit 1; }
+    rc-update add cronie default || { echo "rc-update add cronie default failed"; exit 1; }
+    rc-update add chronyd default || { echo "rc-update add chronyd default failed"; exit 1; }
+    rc-update add sysklogd default || { echo "rc-update add sysklogd default failed"; exit 1; }
+    rc-update add NetworkManager default || { echo "rc-update add NetworkManager default failed"; exit 1; }
+    sleep 3
+
+    echo "Editing for Networkmanager"
+    rc-service NetworkManager start || { echo "Failed to start NetworkManager"; exit 1; }
+    echo "Wating 5s to make sure"
+    sleep 5
+
+    get_input() {   
+        local prompt="$1"
+        local var
+        read -rp "$prompt" var
+        echo "$var"
+    }
+
+    CUSTOM_HOSTNAME=$(get_input "Enter the hostname you want to set: ")
+
+    while true; do
+        HOSTNAME_MODE=$(get_input "Choose hostname mode (dhcp/always): ")
+        if [[ "$HOSTNAME_MODE" == "dhcp" || "$HOSTNAME_MODE" == "always" ]]; then
+            break
+        else
+            echo "Invalid choice! Please enter 'dhcp' or 'always'."
+        fi
+    done
+
+    nmcli general hostname "$CUSTOM_HOSTNAME" || { echo "Failed to create custom hostname"; exit 1; }
+    CONFIG_DIR="/etc/NetworkManager/conf.d"
+    CONFIG_FILE="$CONFIG_DIR/hostname.conf"
+    mkdir -p "$CONFIG_DIR" || { echo "Failed to create directory for $CONFIG_DIR"; exit 1; }
+    echo -e "[main]\nhostname=$CUSTOM_HOSTNAME" > "$CONFIG_FILE" || { echo "Failed put $CUSTOM_HOSTNAME in $CONFIG_FILE"; exit 1; }
+    NM_MAIN_CONFIG="/etc/NetworkManager/NetworkManager.conf"
+    touch "$NM_MAIN_CONFIG" || { echo "Failed to create file $NM_MAIN_CONFIG"; exit 1; }
+    sed -i '/^hostname-mode=/d' "$NM_MAIN_CONFIG" || { echo "Failed to edit file $NM_MAIN_CONFIG"; exit 1; }
+
+    # Add the new hostname-mode setting
+    if ! grep -q "^\[main\]" "$NM_MAIN_CONFIG"; then
+    echo -e "\n[main]" >> "$NM_MAIN_CONFIG"
+    fi
+    echo "hostname-mode=$HOSTNAME_MODE" >> "$NM_MAIN_CONFIG"
+
+    rc-service NetworkManager restart
+    echo "-------------------------------------------"
+    echo "New hostname set to: $(hostnamectl hostname)"
+    echo "Hostname mode set to: $HOSTNAME_MODE"
+    echo "NetworkManager succesfully configured"
+    echo "-------------------------------------------"
+
+}
+
+function config_for_session() {
+
+    echo "Config doas"
+    echo "permit persist -wheel" >> /etc/doas.conf
+    chown -c root:root /etc/doas.conf
+    chmod 0400 /etc/doas.conf
+    echo "/etc/doas.conf permission is now set as root:root 0400"
+
+    echo "Editing greetd config"
+    sed -i "s/?/current/g" /etc/greetd/config.toml || { echo "Cant edit the file from ? to current in /etc/greetd/config.toml"; exit 1; }
+    sed -i "s/agreety/tuigreet/g" /etc/greetd/config.toml || { echo "Cant edit the file from agreety to tuigreet in /etc/greetd/config.toml"; exit 1; }
+    sed -i "s/\/bin\/sh/\/bin\/bash/g" /etc/greetd/config.toml || { echo "Cant edit the file from /bin/sh to /bin/bash in /etc/greetd/config.toml"; exit 1; }
+    echo "Adding greetd access"
+    usermod greetd -aG seat || { echo "Failed to seat group to greetd"; exit 1; }
+    usermod greetd -aG video || { echo "Failed to video group to greetd"; exit 1; }
+    usermod greetd -aG input || { echo "Failed to input group to greetd"; exit 1; }
+    echo "---------------------------------------------------------------------------------------"
+    echo "After reboot the user need to edit /etc/initab to get tuigreet to show up when booting"
+    echo "c1:12345:respawn:/bin/greetd"
+    echo "---------------------------------------------------------------------------------------"
+    read -rp "Confirm that you have read the information (y/n): " user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "-------------------------------------------------------------------------------------"
+        echo "The script will still continue so you need to search on internet how to do it later!"
+        echo "-------------------------------------------------------------------------------------"
+    fi
+    echo "greetd config done!"
+    sleep 5
+
+    echo "Making root password"
+    while true; do
+        echo "Type yours password for root"
+        passwd root
+        if [ $? -eq 0 ]; then
+            echo "Root password set successfully."
+            break
+        else
+            echo "Failed to set root password. Please try again."
+        fi
+    done
+
+    echo "Adding user"
+    while tru; do
+        read -rp "Enter the username: " user_acc
+
+        if [ -z "$user_acc" ]; then
+            echo "Username cannot be empty. try again."
+        else
+            break
+        fi
+    done
+
+    useradd -m -G users,wheel,seat,disk,input,cdrom,floppy,audio,video -s /bin/bash "$user_acc"
+
+    if [ $? -eq 0 ]; then
+        echo "User $user_acc created successfully."
+    else
+        echo "Failed to create user $user_acc."
+        exit 1
+    fi
+
+    while true; do
+        echo "Setting password for $user_acc:"
+        passwd "$user_acc"
+        if [ $? -eq 0 ]; then
+            echo "Password for $user_acc set successfully."
+            break
+        else
+            echo "Failed to set password for $user_acc. Please try again."
+        fi
+    done
+
+    echo "Config for session is now done"
+
+}
+
+function dracut_update() {
+
+    echo "Updating dracut and preparing initramfs for kernel build..."
     local sel_disk="$1"
     local sel_disk_boot="$2"
-    read -r -p "You are about to format the selected disk: $sel_disk. Are you sure? (y/n) " confirm
-    if [[ "$confirm" != "y" ]]; then
-        echo "Aborted."
-        exit 0
+    
+    echo "Kernel command line generated:"
+    # Set Dracut modules for encryption support
+    add_dracutmodules=" crypt crypt-gpg dm rootfs-block "
+    kernel_cmdline=""
+
+    # FOR SWAP
+    swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
+    if [ -z "$swapuuid" ]; then
+        echo "No UUID found for ${sel_disk}1 (SWAP)"
+    else
+        kernel_cmdline+=" rd.luks.uuid=$swapuuid"
+        echo "The swap UUID is set to: $swapuuid"
     fi
-    
-# Live disk
-    echo "Editing disk for drive"
-sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk "$sel_disk"
-g # New GPT disklabel
-n # New partition 
-1 # partition number
- # Default
-+48GB # Swap partition size
-t # type
-1 # select partition 1
-19 # Linux Swap
-n # New partition
-2 # partition number 
- # default
- # default
-p # Print pratitions
-w # write to disk
-q # exit
-EOF
+    # END SWAP
 
-#Boot disk
-    echo "Editing disk for boot and key"
-sed -e 's/\s*\([\+0-9a-zA-Z]*\).*/\1/' << EOF | fdisk "$sel_disk_boot"
-g # New GPT disklabel
-n # new pratition
-1 # partition number
- # default
-+1G # boot size
-t # type
-1 # EFI system type
-n # new partition
-2 # partition number
- # Default
-+1G # partition size
-t # type
-2 # selected partition
-142 # Linux extended boot
-p # print partitions 
-w # write to disk
-q # exit
-EOF
-    # Start Prep for boot disk
-    echo "Making filesystem for boot and key"
-    mkfs.vfat -F 32 "${sel_disk_boot}1"
-    mkfs.ext4 "${sel_disk_boot}2"
-    echo "Making directory in /media/ to mount the key"
-    mkdir /media/ex-usb
-    mount "${sel_disk_boot}2" /media/ex-usb
-    cd /media/ex-usb || { echo "Failed to change directory"; exit 1;}
-    # End of prep for boot disk
+    # FOR ROOT
+    rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
+    if [ -z "$rootlabel" ]; then
+        echo "No label found for ${sel_disk}2 (ROOT)"
+    else
+        kernel_cmdline+=" root=LABEL=$rootlabel"
+        echo "The root LABEL is set to: $rootlabel"
+    fi
 
-    # Start prep for swap partition
-    echo "Generating random keyfile"
-    dd if=/dev/urandom of=swap-keyfile bs=8388608 count=1 || { echo "Could not generate key for swap-keyfile"; exit 1; }
-    echo "GPG symmetric encryption for keyfile"
-    gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile || { echo "Could not encrypt key with gpg --symmetric key for swap-keyfile"; exit 1; }
+    rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
+    if [ -z "$rootuuid" ]; then
+        echo "No UUID found for ${sel_disk}2 (ROOT)"
+    else
+        kernel_cmdline+=" rd.luks.uuid=$rootuuid"
+        echo "The root UUID is set to: $rootuuid"
+    fi
+    # END ROOT
 
-    echo "Decrypting GPG keyfile"
-    gpg --decrypt --output /tmp/swap-keyfile swap-keyfile.gpg || { echo "Could not decrypt key with gpg --symmetric key for swap-keyfile"; exit 1; }
-    echo "Encrypting swap partition with keyfile"
-    cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${sel_disk}1" --key-file=/tmp/swap-keyfile || { echo "Could not encrypt swap partition with key-file swap-keyfile"; exit 1; }
+    # FOR BOOT (KEYFILE)
+    boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+    if [ -z "$boot_key_uuid" ]; then
+        echo "No UUID found for ${sel_disk_boot}2 (KEYFILE STORAGE)"
+    else
+        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
+        kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
+        echo "The keyfile storage UUID is set to: $boot_key_uuid"
+    fi
+    # END BOOT
 
-    echo "Opening up the swap partition"
-    cryptsetup open "${sel_disk}1" cryptswap --key-file=/tmp/swap-keyfile || { echo "Could not open the encrypted swap partition"; exit 1; }
-    echo "Shreding keyfile"
-    shred -u /tmp/swap-keyfile
-    
-    # Swap partition setup
-    echo "Making swap and swapon"
-    mkswap /dev/mapper/cryptswap || { echo "Failed to make swap"; exit 1; }
-    swapon /dev/mapper/cryptswap || { echo "No swap on"; exit 1; }
-    # End of prep for swap partition
-
-    # Start prep for root partition
-    echo "Generating random keyfile"
-    dd if=/dev/urandom of=luks-keyfile bs=8388608 count=1 || { echo "Could not generate key for luks-keyfile"; exit 1; }
-    echo "GPG symmetric encryption for keyfile"
-    gpg --symmetric --cipher-algo AES256 --output luks-keyfile.gpg luks-keyfile || { echo "Could not encrypt key with gpg --symmetric key for luks-keyfile"; exit 1; }
-
-    echo "Decrypting GPG keyfile"
-    gpg --decrypt --output /tmp/luks-keyfile luks-keyfile.gpg || { echo "Could not decrypt key with gpg --symmetric key for luks-keyfile"; exit 1; }
-    echo "Encrypting root partition with keyfile"
-    cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${sel_disk}2" --key-file=/tmp/luks-keyfile || { echo "Could encrypt root partition with key-file luks-keyfile"; exit 1; }
-
-    echo "Opening up the root partition"
-    cryptsetup open "${sel_disk}2" cryptroot --key-file=/tmp/luks-keyfile || { echo "Could not open the encrypted root partition"; exit 1; }
-    echo "Shreding keyfile"
-    shred -u /tmp/luks-keyfile
-    # End of prep for root partition
-
-    cd || { echo "Failed to change to user root directory"; exit 1; }
-
-    # Root partition setup
-    echo "Making /mnt/root for mount of subvolumes"
-    mkdir /mnt/root || { echo "Failed to create directory"; exit 1; }
-    echo "Makeing btrfs filesystem"
-    mkfs.btrfs -L BTROOT /dev/mapper/cryptroot || { echo "Failed to create btrfs"; exit 1; }
-    echo "mounting filesystem to /mnt/root"
-    mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root || { echo "Failed to mount btrfs /dev/mapper/cryptroot to /mnt/root"; exit 1; }
-
-    # Create subvolumes
-    echo "creation of subvolumes"
-    for sub in activeroot home etc var log tmp; do
-        btrfs subvolume create "/mnt/root/$sub" || { echo "Failed to create subvolume $sub"; exit 1; }
-    done
-
-    # Creating and mounting to root
-    echo "Mounting everything to /mnt/gentoo"
-    mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
-    mkdir /mnt/gentoo/{home,etc,var,log,tmp,efi}
-    for sub in home etc var log tmp; do
-        mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
-    done
-    # End of prep for root partition
-
-    lsblk
-    read -rp "\nDoes the disk layout look correct? (y/n): " user_input
+    lsblk -o NAME,UUID
+    echo "$kernel_cmdline will be added to /etc/dracut.conf"
+    read -rp "Does the kernel_cmdline+= to /etc/dracut.conf look right? (y/n): " user_input
     if [[ "$user_input" =~ ^[Nn] ]]; then
         echo "Exiting..."
         exit 1
     fi
-    echo "The disk have been succesfully modified with btrfs and subvolumes and the encryption process"
-    echo "Continuing script..."
-
-}
-
-function Download_and_Verify_stage3() {
-
-    cd / || { echo "Failed to change directory to root"; exit 1; }
-
-    URL1="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
-    URL1_FALLBACK="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
-    URL2="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
-    URL2_FALLBACK="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
-
-    echo "------------------------------------------------------------------------"
-    echo "Please choose the type of stage3 file for amd64:"
-    echo "1. Hardened OpenRC (URL1)"
-    echo "2. Hardened SELinux OpenRC (URL2)"
-    echo "------------------------------------------------------------------------"
-    read -rp "Enter your choice (1-2): " type_choice
-
-    case "$type_choice" in
-        1)
-            BOUNCER_URL="$URL1"
-            FALLBACK_URL="$URL1_FALLBACK"
-            FILE_PATTERN='stage3-amd64-hardened-openrc-\d{8}T\d{6}Z\.tar\.xz'
-            ;;
-        2)
-            BOUNCER_URL="$URL2"
-            FALLBACK_URL="$URL2_FALLBACK"
-            FILE_PATTERN='stage3-amd64-hardened-selinux-openrc-\d{8}T\d{6}Z\.tar\.xz'
-            ;;
-        *)
-            echo "Invalid choice. Exiting..."
-            exit 1
-            ;;
-    esac
-
-    echo "Fetching the latest stage3 file from $BOUNCER_URL..."
-    echo "------------------------------------------------------------------------"
-
-    # Try to retrieve the list of files from the selected Bouncer URL
-    FILE_LIST=$(curl -s "$BOUNCER_URL")
-    if [[ -z "$FILE_LIST" ]]; then
-        echo "Primary URL failed. Trying fallback URL $FALLBACK_URL..."
-        FILE_LIST=$(curl -s "$FALLBACK_URL")
-        if [[ -z "$FILE_LIST" ]]; then
-            echo "Failed to retrieve the list of files from both primary and fallback URLs. Exiting..."
-            exit 1
-        fi
-        BOUNCER_URL="$FALLBACK_URL"
-    fi
-
-    # Find the latest stage3 file and its corresponding .asc file
-    STAGE3_FILENAME=$(echo "$FILE_LIST" | grep -oP "$FILE_PATTERN" | tail -n 1)
-    ASC_FILENAME="${STAGE3_FILENAME}.asc"
-
-    if [[ -z "$STAGE3_FILENAME" || -z "$ASC_FILENAME" ]]; then
-        echo "Failed to find the latest stage3 file or its .asc file. Exiting..."
-        exit 1
-    fi
-
-    STAGE3_URL="$BOUNCER_URL/$STAGE3_FILENAME"
-    ASC_URL="$BOUNCER_URL/$ASC_FILENAME"
-
-    echo "Downloading stage3 file: $STAGE3_FILENAME"
-    curl -O "$STAGE3_URL" || { echo "Failed to download stage3 file"; exit 1; }
-
-    echo "Downloading verification file: $ASC_FILENAME"
-    curl -O "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
-
-    # Ensure the files are not empty
-    if [[ ! -s "$STAGE3_FILENAME" || ! -s "$ASC_FILENAME" ]]; then
-        echo "Downloaded files are empty. Exiting..."
-        exit 1
-    fi
-
-    echo "Download complete: $STAGE3_FILENAME and $ASC_FILENAME"
-
-    echo "Importing Gentoo release key..."
-    gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import Gentoo release key"; exit 1; }
-    # Can add if the file dont want to verify with the extra troubleshooting
-    # gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
-    echo "Key successfully imported"
-
-    echo "Verifying stage3 file..."
-    # Can add --debug-level guru for troubleshooting
-    gpg --verify "$ASC_FILENAME" "$STAGE3_FILENAME" || { echo "Failed to verify $STAGE3_FILENAME with $ASC_FILENAME"; exit 1; }
-    echo "Verification successful!"
-    sleep 5
-
-    echo "Extracting stage3 file..."
-    tar xpvf "$STAGE3_FILENAME" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract $STAGE3_FILENAME"; exit 1; }
-
-    echo "Gentoo stage3 file setup complete."
-    echo "Success!"
-
-}
-
-function config_system () {
-
-    echo "we will be using EOF to configure fstab"
-    echo "All this coming from first function where we created disk and subvolome"
-    cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
-LABEL=BTROOT    /       btrfs   defaults,noatime,compress=zstd,subvol=activeroot     0 0
-LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=zstd,subvol=home           0 0
-LABEL=BTROOT    /etc    btrfs   defaults,noatime,compress=zstd,subvol=etc            0 0
-LABEL=BTROOT    /var    btrfs   defaults,noatime,compress=zstd,subvol=var            0 0
-LABEL=BTROOT    /log    btrfs   defaults,noatime,compress=zstd,subvol=log            0 0
-LABEL=BTROOT    /tmp    btrfs   defaults,noatime,nosuid,nodev,noexec,compress=zstd,subvol=tmp    0 0
-EOF
-
+    echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+    echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     sleep 3
-    echo "setting up loclale.gen"
-    sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" /mnt/gentoo/etc/locale.gen
-    # If dualboot uncomment below
-    # sed -i "s/clock=\"UTC\"/clock=\"local\"/g" ./etc/conf.d/hwclock
-    echo "Changing to swedish keyboard"
-    sed -i "s/keymap=\"us\"/keymaps=\"sv-latin1\"/g" /mnt/gentoo/etc/conf.d/keymaps
-    echo "change locale.conf and edit timezone to Europe/Stockholm"
-    echo 'LANG="en_US.UTF-8"' >> /mnt/gentoo/etc/locale.conf
-    echo 'LC_COLLATE="C.UTF-8"' >> /mnt/gentoo/etc/locale.conf
-    echo "Europe/Stockholm" > /mnt/gentoo/etc/timezone
-
-    echo "Succesfully edited basic system"
+    dracut -v
 
 }
 
-function config_portage () {
+function kernel () {
 
-    echo "we will now configure system"
-    mkdir -p /mnt/gentoo/etc/portage/repos.conf
-    cp /usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
-    cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
-    echo "we will now have network in chroot later"
-    sleep 3
-
-    # Copy custom portage configuration files
-    echo "Moving over portge file from download to chroot"
-    mkdir /mnt/gentoo/etc/portage/env
-    mv ~/Linux-shell-main/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
-    mv ~/Linux-shell-main/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
-    mv ~/Linux-shell-main/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
-
-    mv ~/Linux-shell-main/Gentoo/portage/package.use/* /mnt/gentoo/etc/portage/package.use/
-    mv ~root/Linux-shell-main/Gentoo/portage/package.accept_keywords/* /mnt/gentoo/etc/portage/package.accept_keywords/
-    echo "copinging over package.accept_keywords successully"
-    echo "Portage configuration complete."
-
-}
-
-function setup_chroot() {
-
-    echo "Setting up chroot environment..."
-    mount --types proc /proc /mnt/gentoo/proc
-    mount --rbind /sys /mnt/gentoo/sys
-    mount --make-rslave /mnt/gentoo/sys
-    mount --rbind /dev /mnt/gentoo/dev
-    mount --make-rslave /mnt/gentoo/dev
-    mount --bind /run /mnt/gentoo/run
-    mount --make-slave /mnt/gentoo/run
-    sleep 5
-
-    echo "Coping over chroot.sh into chroot"
-    cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
-    chmod +x /mnt/gentoo/scratch-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
-    echo "everything is mounted and ready to chroot"
-    echo "chrooting will be in 10 sec"
-    echo "After the chroot is done it will be in another bash session"
+    echo "---------------------------------------------------------"
+    echo "You need to activate support for initramfs sourc file(s)"
+    echo "Please read the wiki or Readme.md"
+    echo "---------------------------------------------------------"
+    echo "This will start a session that user can edit the kernel"
+    echo "the flags use in the config is:"
+    echo "--luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
     sleep 10
-    chroot /mnt/gentoo /bin/bash -c "./scratch-in-chroot.sh" || { echo "failed to chroot"; exit 1; }
+    genkernel --luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "Could not start/install genkernel"; exit 1; }
+    sleep 5
+    echo "kernel completed"
+    
+}
+
+function config_boot() {
+
+    echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
+    cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi
+    cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img
+
+    echo "Configuring key to boot using /efi only"
+    local sel_disk="$1"
+    local sel_disk_boot="$2"
+
+    SWAP_UUID=$(blkid "${sel_disk}1" -o value -s UUID)
+    ROOT_UUID=$(blkid "${sel_disk}2" -o value -s UUID)
+    BOOT_KEY_UUID=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+
+    # Ensure UUIDs are retrieved successfully
+    if [[ -z "$SWAP_UUID" || -z "$ROOT_UUID" || -z "$BOOT_KEY_UUID" ]]; then
+        echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
+        exit 1
+    fi
+    sleep 3
+
+    # Create EFI boot entry (using UUID for Boot Key Partition)
+    efibootmgr --create --disk "$sel_disk_boot" --part 1 \
+    --label "Gentoo" \
+    --loader '\\EFI\\Gentoo\\bzImage.efi' \
+    --unicode "root=UUID=$ROOT_UUID initrd=\\EFI\\Gentoo\\initramfs.img rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+
+    if [[ $? -eq 0 ]]; then
+        echo "EFI boot entry created successfully."
+    else
+        echo "Error: Failed to create EFI boot entry."
+        exit 1
+    fi
+    sleep 3
+
+    efibootmgr || { echo "Could not create boot entry"; exit 1; }
+    read -rp "Does the efibootmgr look right? (y/n): " user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+    sleep 3
+
+    ls -lh /efi/EFI/Gentoo/
+    read -rp "Does the /efi/EFI/Gentoo look right? (y/n): " user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+    sleep 3
 
 }
 
-echo "Hello and welcome to an Gentoo linux install script!"
-echo "That the script is very limited what the user can edit and configure."
-echo "If you look at the source code you will understand."
-echo "For this is almost just a basic Gentoo install because of the packages."
-echo "And the disk configuration is very hardcoded hehehehe ;)"
-echo "Lets start!!!"
-export GPG_TTY=$(tty)
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "! Now you are in chroot. !"
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!"
+sleep 5
 
-list_disks
-echo "-------------------------------------------------------------------------------------"
-echo "Note: In this script the boot and boot partition and keyfile will be on another disk"
-echo "So it will prompt two times for disk selection, Please read the prompt correctly!"
-echo "-------------------------------------------------------------------------------------"
-read -r -p "Enter the disk you want to partition and format for Boot (e.g., /dev/sda): " selected_disk_Boot
-read -r -p "Enter the disk you want to partition and format for Root/swap(e.g., /dev/sda): " selected_disk
-validate_block_device "$selected_disk" "$selected_disk_Boot"
-setup_disk "$selected_disk" "$selected_disk_Boot"
-Download_and_Verify_stage3
-config_system
-config_portage
-setup_chroot
+lsblk
+read -r -p "Enter the Boot disk (e.g., /dev/sda): " selected_disk_Boot
+read -r -p "Enter the Root disk (e.g., /dev/sda): " selected_disk
+validate_block_device "$selected_disk_Boot" "$selected_disk"
+chroot_first "$selected_disk_Boot"
+remerge_and_core_package
+openrc_runtime
+config_for_session
+dracut_update "$selected_disk" "$selected_disk_Boot"
+kernel
+config_boot "$selected_disk" "$selected_disk_Boot"
