@@ -193,13 +193,17 @@ function Download_and_Verify_stage3() {
     echo "Selected mirror: $MIRROR"
     export GENTOO_MIRRORS="$MIRROR"
 
+    # Correct the URLs for downloading files
+    STAGE3_URL="$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$STAGE3_FILENAME"
+    ASC_URL="$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$ASC_FILENAME"
+
     # Download the stage3 file
     echo "Downloading stage3 file: $STAGE3_FILENAME"
-    curl -O "$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$STAGE3_FILENAME" || { echo "Failed to download stage3 file"; exit 1; }
+    curl -O "$STAGE3_URL" || { echo "Failed to download stage3 file"; exit 1; }
 
     # Download the .asc file
     echo "Downloading verification file: $ASC_FILENAME"
-    curl -O "$MIRROR/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/$ASC_FILENAME" || { echo "Failed to download .asc file"; exit 1; }
+    curl -O "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
 
     # Ensure the files are not empty
     if [[ ! -s "$STAGE3_FILENAME" || ! -s "$ASC_FILENAME" ]]; then
@@ -218,6 +222,19 @@ function Download_and_Verify_stage3() {
     gpg --debug-level guru --verify "$ASC_FILENAME" "$STAGE3_FILENAME" || { echo "Failed to verify $STAGE3_FILENAME with $ASC_FILENAME"; exit 1; }
 
     echo "Verification successful!"
+
+    # Ensure /mnt/gentoo exists before extracting
+    if [[ ! -d /mnt/gentoo ]]; then
+        echo "Creating /mnt/gentoo ..."
+        mkdir -p /mnt/gentoo || { echo "Failed to create /mnt/gentoo"; exit 1; }
+    fi
+
+    # Extract the stage3 file
+    echo "Extracting stage3 file..."
+    tar xpvf "$STAGE3_FILENAME" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract $STAGE3_FILENAME"; exit 1; }
+
+    echo "Gentoo stage3 file setup complete."
+    echo "Success!"
 }
 
 function config_system () {
