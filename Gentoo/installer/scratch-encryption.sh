@@ -158,24 +158,55 @@ EOF
 }
 
 function Download_and_Verify_stage3() {
+
     cd / || { echo "Failed to change directory to root"; exit 1; }
 
-    # Define the Bouncer URL and the type of stage3 file
-    BOUNCER_URL="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
+    URL1="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
+    URL1_FALLBACK="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-openrc/"
+    URL2="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
+    URL2_FALLBACK="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
 
     echo "------------------------------------------------------------------------"
-    echo "Fetching the latest stage3 file for stage3-amd64-hardened-openrc..."
+    echo "Please choose the type of stage3 file for amd64:"
+    echo "1. Hardened OpenRC (URL1)"
+    echo "2. Hardened SELinux OpenRC (URL2)"
+    echo "------------------------------------------------------------------------"
+    read -rp "Enter your choice (1-2): " type_choice
+
+    case "$type_choice" in
+        1)
+            BOUNCER_URL="$URL1"
+            FALLBACK_URL="$URL1_FALLBACK"
+            FILE_PATTERN='stage3-amd64-hardened-openrc-\d{8}T\d{6}Z\.tar\.xz'
+            ;;
+        2)
+            BOUNCER_URL="$URL2"
+            FALLBACK_URL="$URL2_FALLBACK"
+            FILE_PATTERN='stage3-amd64-hardened-selinux-openrc-\d{8}T\d{6}Z\.tar\.xz'
+            ;;
+        *)
+            echo "Invalid choice. Exiting..."
+            exit 1
+            ;;
+    esac
+
+    echo "Fetching the latest stage3 file from $BOUNCER_URL..."
     echo "------------------------------------------------------------------------"
 
-    # Retrieve the list of files from the Bouncer URL
-    FILE_LIST=$(curl -s "$BOUNCER_URL/")
+    # Try to retrieve the list of files from the selected Bouncer URL
+    FILE_LIST=$(curl -s "$BOUNCER_URL")
     if [[ -z "$FILE_LIST" ]]; then
-        echo "Failed to retrieve the list of files. Exiting..."
-        exit 1
+        echo "Primary URL failed. Trying fallback URL $FALLBACK_URL..."
+        FILE_LIST=$(curl -s "$FALLBACK_URL")
+        if [[ -z "$FILE_LIST" ]]; then
+            echo "Failed to retrieve the list of files from both primary and fallback URLs. Exiting..."
+            exit 1
+        fi
+        BOUNCER_URL="$FALLBACK_URL"
     fi
 
     # Find the latest stage3 file and its corresponding .asc file
-    STAGE3_FILENAME=$(echo "$FILE_LIST" | grep -oP 'stage3-amd64-hardened-openrc-\d{8}T\d{6}Z\.tar\.xz' | tail -n 1)
+    STAGE3_FILENAME=$(echo "$FILE_LIST" | grep -oP "$FILE_PATTERN" | tail -n 1)
     ASC_FILENAME="${STAGE3_FILENAME}.asc"
 
     if [[ -z "$STAGE3_FILENAME" || -z "$ASC_FILENAME" ]]; then
@@ -183,15 +214,12 @@ function Download_and_Verify_stage3() {
         exit 1
     fi
 
-    # Correct the URLs for downloading files
     STAGE3_URL="$BOUNCER_URL/$STAGE3_FILENAME"
     ASC_URL="$BOUNCER_URL/$ASC_FILENAME"
 
-    # Download the stage3 file
     echo "Downloading stage3 file: $STAGE3_FILENAME"
     curl -O "$STAGE3_URL" || { echo "Failed to download stage3 file"; exit 1; }
 
-    # Download the .asc file
     echo "Downloading verification file: $ASC_FILENAME"
     curl -O "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
 
@@ -203,28 +231,24 @@ function Download_and_Verify_stage3() {
 
     echo "Download complete: $STAGE3_FILENAME and $ASC_FILENAME"
 
-    # Verify the stage3 file with the .asc file
     echo "Importing Gentoo release key..."
     gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import Gentoo release key"; exit 1; }
-    gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
+    # Can add if the file dont want to verify with the extra troubleshooting
+    # gpg --keyserver hkps://keys.gentoo.org --recv-keys 0xBB572E0E2D182910 || { echo "Failed to retrieve key from keyserver"; exit 1; }
+    echo "Key successfully imported"
 
     echo "Verifying stage3 file..."
-    gpg --debug-level guru --verify "$ASC_FILENAME" "$STAGE3_FILENAME" || { echo "Failed to verify $STAGE3_FILENAME with $ASC_FILENAME"; exit 1; }
-
+    # Can add --debug-level guru for troubleshooting
+    gpg --verify "$ASC_FILENAME" "$STAGE3_FILENAME" || { echo "Failed to verify $STAGE3_FILENAME with $ASC_FILENAME"; exit 1; }
     echo "Verification successful!"
+    sleep 5
 
-    # Ensure /mnt/gentoo exists before extracting
-    if [[ ! -d /mnt/gentoo ]]; then
-        echo "Creating /mnt/gentoo ..."
-        mkdir -p /mnt/gentoo || { echo "Failed to create /mnt/gentoo"; exit 1; }
-    fi
-
-    # Extract the stage3 file
     echo "Extracting stage3 file..."
     tar xpvf "$STAGE3_FILENAME" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract $STAGE3_FILENAME"; exit 1; }
 
     echo "Gentoo stage3 file setup complete."
     echo "Success!"
+
 }
 
 function config_system () {
