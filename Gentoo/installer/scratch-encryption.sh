@@ -21,14 +21,8 @@ function validate_block_device() {
     fi
 }
 
-# Find UUID of a given partition
-function find_uuid() {
-    local partition="$1"
-    validate_block_device "$partition"
-    blkid -s UUID -o value "$partition" || { echo "Failed to get UUID."; exit 1; }
-}
-
 function setup_disk() {
+
     local sel_disk="$1"
     local sel_disk_boot="$2"
     read -r -p "You are about to format the selected disk: $sel_disk. Are you sure? (y/n) " confirm
@@ -150,59 +144,89 @@ EOF
     for sub in home etc var log tmp; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub
     done
-
     # End of prep for root partition
 
-    # Function to display partitions in tree format
     lsblk
-    # Ask user for confirmation
-    echo -e "\nDoes the disk layout look correct? (y/n): "
-    read -r user_input
-
+    read -rp "\nDoes the disk layout look correct? (y/n): " user_input
     if [[ "$user_input" =~ ^[Nn] ]]; then
         echo "Exiting..."
         exit 1
     fi
-
-    # Continue with the rest of your script
     echo "The disk have been succesfully modified with btrfs and subvolumes and the encryption process"
     echo "Continuing script..."
-    # Add your next steps here
+
 }
 
 function Download_stage3file() {
-    
-    cd || { echo "failed to change directory to root"; exit 1 ; }
-    echo "Please don't exit the link menu berfor the download is completed"
-    echo "select you choosen stage3 file"
-    echo "and also if you want to verify download the tar.xz.asc stage3 file"
+
+    cd / || { echo "Failed to change directory to root"; exit 1; }
+    echo "------------------------------------------------------------------------"
+    echo "Please don't exit the link menu before the download is completed."
+    echo "Select your chosen stage3 file from the Gentoo mirrors page."
+    echo "The Verification file will automatically download, macthing stage3 file"
+    echo "------------------------------------------------------------------------"
     sleep 10
+
     links https://www.gentoo.org/downloads/mirrors/
-    sleep 10
+    sleep 3
 
-    echo -e "\nDo you want to verify the stage3 file? (y/n): "
-    read -r user_input
+    echo "Searching for stage3-*.tar.xz files in the root directory..."
+    STAGE3_FILE=$(find / -type f -name "stage3-*.tar.xz" 2>/dev/null | head -n 1)
 
-    if [[ "$user_input" =~ ^[Yy] ]]; then
-        cd || { echo "failed to change directory to root"; exit 1 ; }
-        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "failed import singniures"; exit 1 ; }
-        sleep 5
-        gpg --verify stage3-*.tar.xz.asc stage3-*.tar.xz || { echo "failed to verify stage-*.tar.xz.asc with stage-*.tar.xz"; exit 1 ; }
-
-        if [[ $? -ne 0 ]]; then
-        echo "Exiting..."
+    # Check if a stage3 file was found
+    if [[ -z "$STAGE3_FILE" ]]; then
+        echo "No stage3-*.tar.xz file found in the root directory."
         exit 1
-        fi
-    else
-        echo "Skipping verifictation"
     fi
 
-    cd || { echo "failed to change directory to root"; exit 1 ; }
+    echo "Found stage3 file: $STAGE3_FILE"
+
+    BOUNCER_URL="https://bouncer.gentoo.org/fetch/root/all/releases/amd64/autobuilds"
+
+    # Extract the filename from the path
+    STAGE3_FILENAME=$(basename "$STAGE3_FILE")
+    ASC_FILENAME="${STAGE3_FILENAME}.asc"
+    ASC_URL="${BOUNCER_URL}/${ASC_FILENAME}"
+
+    # Search for and download the .asc file
+    echo "Searching for .asc file: $ASC_FILENAME"
+    if curl --output /dev/null --silent --head --fail "$ASC_URL"; then
+        echo "Found .asc file at: $ASC_URL"
+        echo "Downloading .asc file..."
+        curl -O "$ASC_URL" || { echo "Failed to download .asc file"; exit 1; }
+        echo "Download complete: $ASC_FILENAME"
+    else
+        echo "No .asc file found for $STAGE3_FILENAME"
+        exit 1
+    fi
+
+    read -rp "\nDo you want to verify the stage3 file? (y/n): " user_input
+    if [[ "$user_input" =~ ^[Yy] ]]; then
+        echo "Importing Gentoo release key..."
+        gpg --import /usr/share/openpgp-keys/gentoo-release.asc || { echo "Failed to import signatures"; exit 1; }
+        sleep 3
+
+        echo "Verifying stage3 file..."
+        gpg --verify "$ASC_FILENAME" "$STAGE3_FILE" || { echo "Failed to verify $STAGE3_FILE with $ASC_FILENAME"; exit 1; }
+
+        if [[ $? -eq 0 ]]; then
+            echo "Verification successful!"
+        else
+            echo "Verification failed. Exiting..."
+            exit 1
+        fi
+    else
+        echo "Skipping verification."
+    fi
+
+    sleep 3
     echo "Extracting stage3 file..."
-    tar xpvf stage3-*.tar.xz --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract"; exit 1; }
-    sleep 5
-    echo "Gentoo stage file setup complete."
+    tar xpvf "$STAGE3_FILE" --xattrs-include='*.*' --numeric-owner -C /mnt/gentoo || { echo "Failed to extract $STAGE3_FILE"; exit 1; }
+    sleep 3
+
+    echo "Gentoo stage3 file setup complete."
     echo "Success!"
+
 }
 
 function config_system () {
@@ -218,7 +242,7 @@ LABEL=BTROOT    /log    btrfs   defaults,noatime,compress=zstd,subvol=log       
 LABEL=BTROOT    /tmp    btrfs   defaults,noatime,nosuid,nodev,noexec,compress=zstd,subvol=tmp    0 0
 EOF
 
-    sleep 5
+    sleep 3
     echo "setting up loclale.gen"
     sed -i "s/#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/g" /mnt/gentoo/etc/locale.gen
     # If dualboot uncomment below
@@ -231,15 +255,17 @@ EOF
     echo "Europe/Stockholm" > /mnt/gentoo/etc/timezone
 
     echo "Succesfully edited basic system"
+
 }
 
 function config_portage () {
+
     echo "we will now configure system"
     mkdir -p /mnt/gentoo/etc/portage/repos.conf
     cp /usr/share/portage/config/repos.conf /mnt/gentoo/etc/portage/repos.conf/gentoo.conf
     cp --dereference /etc/resolv.conf /mnt/gentoo/etc/
     echo "we will now have network in chroot later"
-    sleep 5
+    sleep 3
 
     # Copy custom portage configuration files
     echo "Moving over portge file from download to chroot"
@@ -252,9 +278,11 @@ function config_portage () {
     mv ~root/Linux-shell-main/Gentoo/portage/package.accept_keywords/* /mnt/gentoo/etc/portage/package.accept_keywords/
     echo "copinging over package.accept_keywords successully"
     echo "Portage configuration complete."
+
 }
 
 function setup_chroot() {
+
     echo "Setting up chroot environment..."
     mount --types proc /proc /mnt/gentoo/proc
     mount --rbind /sys /mnt/gentoo/sys
@@ -264,20 +292,36 @@ function setup_chroot() {
     mount --bind /run /mnt/gentoo/run
     mount --make-slave /mnt/gentoo/run
     sleep 5
+
     echo "Coping over chroot.sh into chroot"
     cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
     chmod +x /mnt/gentoo/scratch-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
     echo "everything is mounted and ready to chroot"
     echo "chrooting will be in 10 sec"
-    echo "After the chroot is done it will be in another"
-    echo "Bash session"
+    echo "After the chroot is done it will be in another bash session"
     sleep 10
     chroot /mnt/gentoo /bin/bash -c "./scratch-in-chroot.sh" || { echo "failed to chroot"; exit 1; }
+
 }
 
+echo "Hello and welcome to an Gentoo linux install script!"
+echo "That the script is very limited what the user can edit and configure."
+echo "If you look at the source code you will understand."
+echo "For this is almost just a basic Gentoo install because of the packages."
+echo "And the disk configuration is very hardcoded hehehehe ;)"
+echo "Lets start!!!"
+echo "5....."
+echo "4...."
+echo "3..."
+echo "2.."
+echo "1."
+echo "GOOOOOOO!!!!!!"
+
 list_disks
+echo "-------------------------------------------------------------------------------------"
 echo "Note: In this script the boot and boot partition and keyfile will be on another disk"
-echo "so it will prompt two times for disk selection, Please read the prompt correctly!"
+echo "So it will prompt two times for disk selection, Please read the prompt correctly!"
+echo "-------------------------------------------------------------------------------------"
 read -r -p "Enter the disk you want to partition and format for Boot (e.g., /dev/sda): " selected_disk_Boot
 read -r -p "Enter the disk you want to partition and format for Root/swap(e.g., /dev/sda): " selected_disk
 validate_block_device "$selected_disk" "$selected_disk_Boot"
