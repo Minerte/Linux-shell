@@ -30,6 +30,15 @@ function chroot_first() {
         exit 1
     fi
 
+    mkdir -p /efi/EFI/Gentoo || { echo "Could not create /EFI/Gentoo in /efi directory"; exit 1; }
+    lsblk
+    ls -a /efi
+        read -rp "is ${sel_disk_boot}1 mounted to /efi. And do you have /efi/EFI/Gentoo (y/n): " user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
+
     echo "Syncing with Gentoo mirrors..."
     if ! emerge-webrsync; then
         echo "Failed to run emerge-webrsync"
@@ -98,21 +107,17 @@ function remerge_and_core_package () {
 
 }
 
-# Needs to do before kernel setup
-
-
 function openrc_runtime () {
 
     echo "updating openrc init"
     echo "remove runtime"
     rc-service dhcpcd stop || { echo "rc-service dhcpcd stop failed"; exit 1; }
-    rc-update del dhcpcd default || { echo "rc-update del dhcpcd default failed"; exit 1; }
     rc-update del hostname boot || { echo "rc-update del hostname boot failed"; exit 1; }
     sleep 3
 
     echo "default level"
     rc-update add dbus default || { echo "rc-update add dbus default failed"; exit 1; }
-    rc-updtae add seatd default || { echo "rc-updtae add seatd default failed"; exit 1; }
+    rc-update add seatd default || { echo "rc-updtae add seatd default failed"; exit 1; }
     rc-update add cronie default || { echo "rc-update add cronie default failed"; exit 1; }
     rc-update add chronyd default || { echo "rc-update add chronyd default failed"; exit 1; }
     rc-update add sysklogd default || { echo "rc-update add sysklogd default failed"; exit 1; }
@@ -159,11 +164,10 @@ function openrc_runtime () {
 
     rc-service NetworkManager restart
     echo "-------------------------------------------"
-    echo "New hostname set to: $(hostnamectl hostname)"
+    echo "New hostname set to: $CUSTOM_HOSTNAME"
     echo "Hostname mode set to: $HOSTNAME_MODE"
     echo "NetworkManager succesfully configured"
     echo "-------------------------------------------"
-
 }
 
 function config_for_session() {
@@ -173,27 +177,6 @@ function config_for_session() {
     chown -c root:root /etc/doas.conf
     chmod 0400 /etc/doas.conf
     echo "/etc/doas.conf permission is now set as root:root 0400"
-
-    echo "Editing greetd config"
-    sed -i "s/?/current/g" /etc/greetd/config.toml || { echo "Cant edit the file from ? to current in /etc/greetd/config.toml"; exit 1; }
-    sed -i "s/agreety/tuigreet/g" /etc/greetd/config.toml || { echo "Cant edit the file from agreety to tuigreet in /etc/greetd/config.toml"; exit 1; }
-    sed -i "s/\/bin\/sh/\/bin\/bash/g" /etc/greetd/config.toml || { echo "Cant edit the file from /bin/sh to /bin/bash in /etc/greetd/config.toml"; exit 1; }
-    echo "Adding greetd access"
-    usermod greetd -aG seat || { echo "Failed to seat group to greetd"; exit 1; }
-    usermod greetd -aG video || { echo "Failed to video group to greetd"; exit 1; }
-    usermod greetd -aG input || { echo "Failed to input group to greetd"; exit 1; }
-    echo "---------------------------------------------------------------------------------------"
-    echo "After reboot the user need to edit /etc/initab to get tuigreet to show up when booting"
-    echo "c1:12345:respawn:/bin/greetd"
-    echo "---------------------------------------------------------------------------------------"
-    read -rp "Confirm that you have read the information (y/n): " user_input
-    if [[ "$user_input" =~ ^[Nn] ]]; then
-        echo "-------------------------------------------------------------------------------------"
-        echo "The script will still continue so you need to search on internet how to do it later!"
-        echo "-------------------------------------------------------------------------------------"
-    fi
-    echo "greetd config done!"
-    sleep 5
 
     echo "Making root password"
     while true; do
@@ -208,7 +191,7 @@ function config_for_session() {
     done
 
     echo "Adding user"
-    while tru; do
+    while true; do
         read -rp "Enter the username: " user_acc
 
         if [ -z "$user_acc" ]; then
@@ -242,7 +225,10 @@ function config_for_session() {
 
 }
 
+# Needs to do before kernel setup
 function dracut_update() {
+
+    mkdir -p /efi/EFI/Gentoo 
 
     echo "Updating dracut and preparing initramfs for kernel build..."
     local sel_disk="$1"
@@ -251,6 +237,7 @@ function dracut_update() {
     echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
     add_dracutmodules=" crypt crypt-gpg dm rootfs-block "
+    install_items=" /usr/bin/gpg "
     kernel_cmdline=""
 
     # FOR SWAP
@@ -265,8 +252,19 @@ function dracut_update() {
 
     # FOR ROOT
     rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
+
     if [ -z "$rootlabel" ]; then
         echo "No label found for ${sel_disk}2 (ROOT)"
+        echo "We will hardcode the label instead."
+        lsblk "${sel_disk}2" -o NAME,LABEL
+        read -rp "Write down your label: " user_input
+        user_input=$(echo "$user_input" | xargs)  # Remove leading/trailing spaces
+        if [ -z "$user_input" ]; then
+            echo "Invalid label input! Exiting..."
+            exit 1
+        fi
+        kernel_cmdline+=" root=LABEL=$user_input"
+        echo "The root LABEL is set to: $user_input"
     else
         kernel_cmdline+=" root=LABEL=$rootlabel"
         echo "The root LABEL is set to: $rootlabel"
@@ -301,32 +299,59 @@ function dracut_update() {
     fi
     echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf || { echo "Failed to mobe kernel_cmdline to /etc/dracut.conf"; exit 1; }
     echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf || { echo "Failed to mobe add_dracutmodules to /etc/dracut.conf"; exit 1; }
+    echo "install_items+=\"$install_items\"" >> /etc/dracut.conf || { echo "Failed to mobe install_items to /etc/dracut.conf"; exit 1; }
     sleep 3
-    dracut -v
+    dracut
 
 }
 
 function kernel () {
 
     echo "---------------------------------------------------------"
-    echo "You need to activate support for initramfs sourc file(s)"
+    echo "You need to activate support for initramfs source file(s)"
     echo "Please read the wiki or Readme.md"
     echo "---------------------------------------------------------"
     echo "This will start a session that user can edit the kernel"
     echo "the flags use in the config is:"
     echo "--luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
+    echo "---------------------------------------------------------"
     sleep 10
-    genkernel --luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "Could not start/install genkernel"; exit 1; }
+    echo "Starting genkernel with the specified flags..."
     sleep 5
-    echo "kernel completed"
-    
+    genkernel --luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "ERROR: Could not start/install genkernel"; exit 1; }
+
+    sleep 5
+    echo "Kernel build completed"
+
 }
 
 function config_boot() {
 
     echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
-    cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi || { echo "Failed to copy boot kernel to /efi/EFI/Gentoo/bzImage.efi"; exit 1;}
-    cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img || { echo "Failed to initramfs to /efi/EFI/Gentoo/initramfs.img"; exit 1;}
+    if cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi; then
+        echo "Successfully copied kernel-* to /efi/EFI/Gentoo/bzImage.efi"
+    else
+        echo "Failed to copy kernel-*, trying vmlinuz-* or bzImage-*..."
+        if cp /boot/vmlinuz-* /efi/EFI/Gentoo/bzImage.efi; then
+            echo "Successfully copied vmlinuz-* to /efi/EFI/Gentoo/bzImage.efi"
+        else
+            if cp /boot/bzImage-* /efi/EFI/Gentoo/bzImage.efi; then
+                echo "Successfully copied bzImage-* to /efi/EFI/Gentoo/bzImage.efi"
+            else
+                echo "Failed to copy kernel (kernel-*, vmlinuz-*, or bzImage-*) to /efi/EFI/Gentoo/bzImage.efi"
+                exit 1
+            fi
+        fi
+    fi
+
+    # Copy initramfs
+    if cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img; then
+        echo "Successfully copied initramfs-* to /efi/EFI/Gentoo/initramfs.img"
+    else
+        echo "Failed to copy initramfs-* to /efi/EFI/Gentoo/initramfs.img"
+        exit 1
+    fi
+    echo "All files copied successfully!"
 
     echo "Configuring key to boot using /efi only"
     local sel_disk="$1"
@@ -346,8 +371,8 @@ function config_boot() {
     # Create EFI boot entry (using UUID for Boot Key Partition)
     efibootmgr --create --disk "$sel_disk_boot" --part 1 \
     --label "Gentoo" \
-    --loader '\\EFI\\Gentoo\\bzImage.efi' \
-    --unicode "root=UUID=$ROOT_UUID initrd=\\EFI\\Gentoo\\initramfs.img rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+    --loader "\EFI\Gentoo\bzImage.efi" \
+    --unicode "initrd=\EFI\Gentoo\initramfs.img root=UUID=$ROOT_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
 
     if [[ $? -eq 0 ]]; then
         echo "EFI boot entry created successfully."
@@ -391,3 +416,5 @@ config_for_session
 dracut_update "$selected_disk" "$selected_disk_Boot"
 kernel
 config_boot "$selected_disk" "$selected_disk_Boot"
+echo "everything works it seams. You can start to umount and reboot!"
+echo "yeay"
