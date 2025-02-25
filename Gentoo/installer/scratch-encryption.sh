@@ -226,6 +226,12 @@ function Download_stage3file() {
         exit 1
     fi
 
+    # Verify that the .asc file matches the stage3 file
+    if [[ "${STAGE3_FILENAME}.asc" != "$ASC_FILENAME" ]]; then
+        echo "Error: The .asc file does not match the stage3 file. Exiting..."
+        exit 1
+    fi
+
     echo "Download complete: $STAGE3_FILENAME and $ASC_FILENAME"
 
     # Ask user for verification
