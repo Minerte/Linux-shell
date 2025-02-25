@@ -325,8 +325,8 @@ function kernel () {
 function config_boot() {
 
     echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
-    cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi
-    cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img
+    cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi || { echo "Failed to copy boot kernel to /efi/EFI/Gentoo/bzImage.efi"; exit 1;}
+    cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img || { echo "Failed to initramfs to /efi/EFI/Gentoo/initramfs.img"; exit 1;}
 
     echo "Configuring key to boot using /efi only"
     local sel_disk="$1"
