@@ -1,2 +1,4 @@
-sys-libs/glibc static-libs
+dev-libs/libpcre2 static-libs
+sys-libs/libsepol static-libs
 sys-libs/libselinux static-libs
+sys-libs/glibc static-libs
