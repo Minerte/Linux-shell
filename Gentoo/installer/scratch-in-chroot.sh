@@ -71,7 +71,7 @@ function remerge_and_core_package () {
 
     # Adds cpuflag to make.conf
     echo "emerge cpuid2cpuflags"
-    emerge --ask --oneshot app-portage/cpuid2cpuflags
+    emerge --oneshot app-portage/cpuid2cpuflags
     sleep 3
     echo "Adding flag to make.conf"
     CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
@@ -89,14 +89,14 @@ function remerge_and_core_package () {
     echo "Completted succesfully"
     sleep 3
 
-    emerge --ask dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
+    emerge dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
     sleep 3
     echo "enable system-bootstrap in /etc/portage/package.use/Rust"
     sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
 
     echo "emerging core packages!"
     sleep 3
-    emerge --ask sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
+    emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
     sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
     sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
     dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware \
@@ -125,7 +125,7 @@ function openrc_runtime () {
     sleep 3
 
     echo "Editing for Networkmanager"
-    rc-service NetworkManager start || { echo "Failed to start NetworkManager"; exit 1; }
+    rc-service NetworkManager start
     echo "Wating 5s to make sure"
     sleep 5
 
@@ -150,15 +150,17 @@ function openrc_runtime () {
     nmcli general hostname "$CUSTOM_HOSTNAME" || { echo "Failed to create custom hostname"; exit 1; }
     CONFIG_DIR="/etc/NetworkManager/conf.d"
     CONFIG_FILE="$CONFIG_DIR/hostname.conf"
+
     mkdir -p "$CONFIG_DIR" || { echo "Failed to create directory for $CONFIG_DIR"; exit 1; }
     echo -e "[main]\nhostname=$CUSTOM_HOSTNAME" > "$CONFIG_FILE" || { echo "Failed put $CUSTOM_HOSTNAME in $CONFIG_FILE"; exit 1; }
+    
     NM_MAIN_CONFIG="/etc/NetworkManager/NetworkManager.conf"
     touch "$NM_MAIN_CONFIG" || { echo "Failed to create file $NM_MAIN_CONFIG"; exit 1; }
     sed -i '/^hostname-mode=/d' "$NM_MAIN_CONFIG" || { echo "Failed to edit file $NM_MAIN_CONFIG"; exit 1; }
 
     # Add the new hostname-mode setting
     if ! grep -q "^\[main\]" "$NM_MAIN_CONFIG"; then
-    echo -e "\n[main]" >> "$NM_MAIN_CONFIG"
+        echo -e "\n[main]" >> "$NM_MAIN_CONFIG"
     fi
     echo "hostname-mode=$HOSTNAME_MODE" >> "$NM_MAIN_CONFIG"
 
@@ -297,28 +299,30 @@ function dracut_update() {
         echo "Exiting..."
         exit 1
     fi
-    echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf || { echo "Failed to mobe kernel_cmdline to /etc/dracut.conf"; exit 1; }
-    echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf || { echo "Failed to mobe add_dracutmodules to /etc/dracut.conf"; exit 1; }
-    echo "install_items+=\"$install_items\"" >> /etc/dracut.conf || { echo "Failed to mobe install_items to /etc/dracut.conf"; exit 1; }
+    grep -q "^kernel_cmdline+=\"$kernel_cmdline\"" /etc/dracut.conf || echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+    grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
+    grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
     sleep 3
     dracut
+    sleep 3
+    echo "dracut is now configured"
 
 }
 
 function kernel () {
 
-    echo "---------------------------------------------------------"
+    echo "-----------------------------------------------------------------------------------"
     echo "You need to activate support for initramfs source file(s)"
     echo "Please read the wiki or Readme.md"
-    echo "---------------------------------------------------------"
+    echo "-----------------------------------------------------------------------------------"
     echo "This will start a session that user can edit the kernel"
     echo "the flags use in the config is:"
-    echo "--luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
-    echo "---------------------------------------------------------"
+    echo "--luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
+    echo "-----------------------------------------------------------------------------------"
     sleep 10
     echo "Starting genkernel with the specified flags..."
     sleep 5
-    genkernel --luks --gpg --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "ERROR: Could not start/install genkernel"; exit 1; }
+    genkernel --luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "ERROR: Could not start/install genkernel"; exit 1; }
 
     sleep 5
     echo "Kernel build completed"
