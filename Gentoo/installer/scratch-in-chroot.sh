@@ -60,11 +60,32 @@ function chroot_first() {
         exit 1
     fi
 
+    while true; do
+        eselect profile list
+        echo "Select a profile number from the list above."
+        read -rp "Enter profile number (or press Enter to skip): " profile_number
+
+        if [[ -z "$profile_number" ]]; then
+            echo "Skipping profile selection."
+            break
+        fi
+
+        # Check if the profile exists
+        if eselect profile list | grep -qE "^\s*$profile_number"; then
+            eselect profile set "$profile_number"
+            echo "Profile set to $(eselect profile show)"
+            break
+        else
+            echo "Invalid profile number! Try again."
+        fi
+    done
+
     # shellcheck disable=SC1091
     env-update && source /etc/profile
     export PS1="(chroot) ${PS1}"
 
     echo "Chroot environment setup complete!"
+
 }
 
 function remerge_and_core_package () {
@@ -77,15 +98,43 @@ function remerge_and_core_package () {
     CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
     if grep -q "^CPU_FLAGS_X86=" /etc/portage/make.conf; then
         sed -i "s/^CPU_FLAGS_X86=.*/CPU_FLAGS_X86=\"${CPU_FLAGS}\"/" /etc/portage/make.conf  || { echo "could not add CPU_FLAGS_X86= and cpuflags to make.conf"; exit 1; }
+        echo "cpuid2cpuflags added succesfully to make.conf"
     else
         echo "CPU_FLAGS_X86=\"${CPU_FLAGS}\"" >> /etc/portage/make.conf || { echo "could not add cpuflags to make.conf"; exit 1; }
     fi
+
     sleep 3
     echo "re-compiling existing package"
     sleep 3
-    emerge --emptytree -a -1 @installed  || { echo "Re-compile failed check dependency and flags"; exit 1; }
+    while true; do
+        emerge --emptytree -a -1 @installed
+
+        if [[ $? -eq 0 ]]; then
+            echo "Recompilation completed successfully!"
+            break
+        else
+            echo "Re-compile failed! Check dependencies and flags."
+            echo "You are now in the chroot environment. Fix any issues, then type 'retry' to try again."
+
+            while true; do
+                read -rp "Type 'retry' to rerun emerge or 'exit' to leave: " input
+                case $input in
+                    retry)
+                        break
+                        ;;
+                    exit)
+                        echo "Exiting chroot recompile script."
+                        exit 1
+                        ;;
+                    *)
+                        echo "Invalid input. Type 'retry' to retry or 'exit' to quit."
+                        ;;
+                esac
+            done
+        fi
+    done
+
     sleep 5
-    echo "Cpuflags added and recompile apps"
     echo "Completted succesfully"
     sleep 3
     emerge dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
@@ -94,14 +143,39 @@ function remerge_and_core_package () {
     sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
     echo "emerging core packages!"
     sleep 3
-    emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
-    sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
-    sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
-    dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware \
-    app-editors/neovim app-arch/unzip || { echo "Could not merge! check dependency and flags (emerge core)"; exit 1; }
 
-    echo "Core packages installed succesfully!"
-    mkdir /efi/EFI/Gentoo
+    while true; do
+        emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
+            sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
+            sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
+            dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware \
+            app-editors/neovim app-arch/unzip
+
+        if [[ $? -eq 0 ]]; then
+            echo "Core packages installed successfully!"
+            mkdir -p /efi/EFI/Gentoo
+            break
+        else
+            echo "Could not merge! Check dependencies and flags."
+            echo "You are now in the chroot environment. Fix any issues, then type 'retry' to try again."
+        
+            while true; do
+                read -rp "Type 'retry' to rerun emerge or 'exit' to leave: " input
+                case $input in
+                    retry)
+                        break
+                        ;;
+                    exit)
+                        echo "Exiting chroot install script."
+                        exit 1
+                        ;;
+                    *)
+                        echo "Invalid input. Type 'retry' to retry or 'exit' to quit."
+                        ;;
+                esac
+            done
+        fi
+    done
 
 }
 
