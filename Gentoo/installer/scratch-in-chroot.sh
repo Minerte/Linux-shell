@@ -81,12 +81,9 @@ function remerge_and_core_package () {
         echo "CPU_FLAGS_X86=\"${CPU_FLAGS}\"" >> /etc/portage/make.conf || { echo "could not add cpuflags to make.conf"; exit 1; }
     fi
     sleep 3
-    echo "reinstalling selinux to test"
-    emerge --ask sys-libs/libselinux sys-libs/libsepol dev-libs/libpcre2 sys-libs/glibc  || { echo "Re-compile failed check dependency and flags"; exit 1; }
-    
     echo "re-compiling existing package"
     sleep 3
-    emerge --emptytree -a -1 @installed || { echo "Re-compile failed check dependency and flags"; exit 1; }
+    emerge --emptytree -a -1 @installed  || { echo "Re-compile failed check dependency and flags"; exit 1; }
     sleep 5
     echo "Cpuflags added and recompile apps"
     echo "Completted succesfully"
