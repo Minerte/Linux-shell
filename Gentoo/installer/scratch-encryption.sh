@@ -180,7 +180,8 @@ function Download_and_Verify_stage3() {
             FILE_PATTERN='stage3-amd64-hardened-openrc-\d{8}T\d{6}Z\.tar\.xz'
             ;;
         2)
-            BOUNCER_URL="$URL2"
+            echo "As of 2025-02-27 can empty tree proberlay with certain flags and pyton targets"
+            BOUNCER_URL="$URL2" 
             FALLBACK_URL="$URL2_FALLBACK"
             FILE_PATTERN='stage3-amd64-hardened-selinux-openrc-\d{8}T\d{6}Z\.tar\.xz'
             ;;
