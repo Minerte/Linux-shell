@@ -88,12 +88,10 @@ function remerge_and_core_package () {
     echo "Cpuflags added and recompile apps"
     echo "Completted succesfully"
     sleep 3
-
     emerge dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
     sleep 3
     echo "enable system-bootstrap in /etc/portage/package.use/Rust"
     sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
-
     echo "emerging core packages!"
     sleep 3
     emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
