@@ -319,7 +319,7 @@ function dracut_update() {
     if [ -z "$swapuuid" ]; then
         echo "No UUID found for ${sel_disk}1 (SWAP)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
+        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap "
         echo "The swap UUID is set to: $swapuuid"
     fi
     # END SWAP
@@ -337,10 +337,10 @@ function dracut_update() {
             echo "Invalid label input! Exiting..."
             exit 1
         fi
-        kernel_cmdline+=" root=LABEL=$user_input"
+        kernel_cmdline+=" root=LABEL=$user_input "
         echo "The root LABEL is set to: $user_input"
     else
-        kernel_cmdline+=" root=LABEL=$rootlabel"
+        kernel_cmdline+=" root=LABEL=$rootlabel "
         echo "The root LABEL is set to: $rootlabel"
     fi
 
@@ -348,7 +348,7 @@ function dracut_update() {
     if [ -z "$rootuuid" ]; then
         echo "No UUID found for ${sel_disk}2 (ROOT)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
+        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot "
         echo "The root UUID is set to: $rootuuid"
     fi
     # END ROOT
@@ -358,8 +358,8 @@ function dracut_update() {
     if [ -z "$boot_key_uuid" ]; then
         echo "No UUID found for ${sel_disk_boot}2 (KEYFILE STORAGE)"
     else
-        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
-        kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
+        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid "
+        kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid "
         echo "The keyfile storage UUID is set to: $boot_key_uuid"
     fi
     # END BOOT
@@ -375,9 +375,35 @@ function dracut_update() {
     grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
     sleep 3
-    dracut -f -v 
-    sleep 3
-    echo "dracut is now configured"
+    while true; do
+        dracut -f -v
+        sleep 3
+
+        while true; do
+            read -rp "Were there any warnings from 'dracut -f -v'? (y/n): " user_input
+
+            case $user_input in
+                [Nn]) 
+                    echo "No warnings detected. Exiting loop."
+                    exit 0
+                    ;;
+                [Yy]) 
+                    echo "Warnings detected! Fix any issues, then type 'retry' to run dracut again."
+                    ;;
+                retry)
+                    echo "Retrying dracut..."
+                    break
+                    ;;
+                exit)
+                    echo "Exiting script."
+                    exit 1
+                    ;;
+                *)
+                    echo "Invalid input. Type 'y' if there were warnings, 'n' if everything is fine, 'retry' to run dracut again, or 'exit' to quit."
+                    ;;
+            esac
+        done
+    done
 
 }
 
