@@ -282,6 +282,14 @@ EOF
     echo 'LANG="en_US.UTF-8"' >> /mnt/gentoo/etc/locale.conf
     echo 'LC_COLLATE="C.UTF-8"' >> /mnt/gentoo/etc/locale.conf
     echo "Europe/Stockholm" > /mnt/gentoo/etc/timezone
+    sleep 3
+
+    blkid | grep BTROOT
+    read -rp "Do the root drive have LABEL=BTROOT (y/n): " user_input
+    if [[ "$user_input" =~ ^[Nn] ]]; then
+        echo "Exiting..."
+        exit 1
+    fi
 
     echo "Succesfully edited basic system"
 
@@ -339,6 +347,7 @@ echo "If you look at the source code you will understand."
 echo "For this is almost just a basic Gentoo install because of the packages."
 echo "And the disk configuration is very hardcoded hehehehe ;)"
 echo "Lets start!!!"
+# shellcheck disable=SC2155
 export GPG_TTY=$(tty)
 
 list_disks
