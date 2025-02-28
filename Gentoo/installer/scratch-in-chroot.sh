@@ -319,7 +319,7 @@ function dracut_update() {
     if [ -z "$swapuuid" ]; then
         echo "No UUID found for ${sel_disk}1 (SWAP)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$swapuuid"
+        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
         echo "The swap UUID is set to: $swapuuid"
     fi
     # END SWAP
@@ -348,7 +348,7 @@ function dracut_update() {
     if [ -z "$rootuuid" ]; then
         echo "No UUID found for ${sel_disk}2 (ROOT)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$rootuuid"
+        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
         echo "The root UUID is set to: $rootuuid"
     fi
     # END ROOT
@@ -375,7 +375,7 @@ function dracut_update() {
     grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
     sleep 3
-    dracut
+    dracut -f -v 
     sleep 3
     echo "dracut is now configured"
 
@@ -446,9 +446,15 @@ function config_boot() {
 
     # Create EFI boot entry (using UUID for Boot Key Partition)
     efibootmgr --create --disk "$sel_disk_boot" --part 1 \
-    --label "Gentoo" \
-    --loader "\EFI\Gentoo\bzImage.efi" \
-    --unicode "initrd=\EFI\Gentoo\initramfs.img root=UUID=$ROOT_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg rd.luks.allow-discards rd.luks.uuid=$SWAP_UUID rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+        --label "Gentoo" \
+        --loader "\EFI\Gentoo\bzImage.efi" \
+        --unicode "initrd=\EFI\Gentoo\initramfs.img root=/dev/mapper/cryptroot \
+        rd.luks.uuid=$ROOT_UUID rd.luks.name=$ROOT_UUID=cryptroot \
+        rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg \
+        rd.luks.allow-discards \
+        rd.luks.uuid=$SWAP_UUID rd.luks.name=$SWAP_UUID=cryptswap \
+        rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+
 
     if [[ $? -eq 0 ]]; then
         echo "EFI boot entry created successfully."
