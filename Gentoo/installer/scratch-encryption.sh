@@ -166,11 +166,13 @@ function Download_and_Verify_stage3() {
     URL2="https://distfiles.gentoo.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
     URL2_FALLBACK="https://gentoo.osuosl.org/releases/amd64/autobuilds/current-stage3-amd64-hardened-selinux-openrc/"
 
-    echo "------------------------------------------------------------------------"
+    echo "-------------------------------------------------------------------------------------------------"
     echo "Please choose the type of stage3 file for amd64:"
     echo "1. Hardened OpenRC (URL1)"
     echo "2. Hardened SELinux OpenRC (URL2)"
-    echo "------------------------------------------------------------------------"
+    echo "As of 2025-02-27 SELinux stage file can emptytree proberlay with certain flags and python targets"
+    echo "It is recomended to take Hardened stage file instead and install SELinux after"
+    echo "-------------------------------------------------------------------------------------------------"
     read -rp "Enter your choice (1-2): " type_choice
 
     case "$type_choice" in
@@ -257,6 +259,10 @@ function config_system () {
     echo "we will be using EOF to configure fstab"
     echo "All this coming from first function where we created disk and subvolome"
     cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
+#Swap
+/dev/mapper/cryptswap   none    swap    sw                                           0 0
+
+#Root
 LABEL=BTROOT    /       btrfs   defaults,noatime,compress=zstd,subvol=activeroot     0 0
 LABEL=BTROOT    /home   btrfs   defaults,noatime,compress=zstd,subvol=home           0 0
 LABEL=BTROOT    /etc    btrfs   defaults,noatime,compress=zstd,subvol=etc            0 0
