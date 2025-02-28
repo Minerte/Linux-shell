@@ -314,6 +314,7 @@ function dracut_update() {
     install_items=" /usr/bin/gpg "
     kernel_cmdline=""
 
+
     # FOR SWAP
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
     if [ -z "$swapuuid" ]; then
@@ -325,30 +326,12 @@ function dracut_update() {
     # END SWAP
 
     # FOR ROOT
-    rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
-
-    if [ -z "$rootlabel" ]; then
-        echo "No label found for ${sel_disk}2 (ROOT)"
-        echo "We will hardcode the label instead."
-        lsblk "${sel_disk}2" -o NAME,LABEL
-        read -rp "Write down your label: " user_input
-        user_input=$(echo "$user_input" | xargs)  # Remove leading/trailing spaces
-        if [ -z "$user_input" ]; then
-            echo "Invalid label input! Exiting..."
-            exit 1
-        fi
-        kernel_cmdline+=" root=LABEL=$user_input "
-        echo "The root LABEL is set to: $user_input"
-    else
-        kernel_cmdline+=" root=LABEL=$rootlabel "
-        echo "The root LABEL is set to: $rootlabel"
-    fi
-
     rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
     if [ -z "$rootuuid" ]; then
         echo "No UUID found for ${sel_disk}2 (ROOT)"
     else
         kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot "
+        kernel_cmdline+=" root=/dev/mapper/cryptroot "
         echo "The root UUID is set to: $rootuuid"
     fi
     # END ROOT
@@ -474,13 +457,12 @@ function config_boot() {
     efibootmgr --create --disk "$sel_disk_boot" --part 1 \
         --label "Gentoo" \
         --loader "\EFI\Gentoo\bzImage.efi" \
-        --unicode "initrd=\EFI\Gentoo\initramfs.img root=LABEL=BTROOT \
+        --unicode "initrd=\EFI\Gentoo\initramfs.img root=/dev/mapper/cryptroot \
         rd.luks.uuid=$ROOT_UUID rd.luks.name=$ROOT_UUID=cryptroot \
         rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg \
         rd.luks.allow-discards \
         rd.luks.uuid=$SWAP_UUID rd.luks.name=$SWAP_UUID=cryptswap \
         rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
-
 
     if [[ $? -eq 0 ]]; then
         echo "EFI boot entry created successfully."
