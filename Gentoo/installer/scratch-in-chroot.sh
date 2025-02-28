@@ -448,7 +448,7 @@ function config_boot() {
     efibootmgr --create --disk "$sel_disk_boot" --part 1 \
         --label "Gentoo" \
         --loader "\EFI\Gentoo\bzImage.efi" \
-        --unicode "initrd=\EFI\Gentoo\initramfs.img root=/dev/mapper/cryptroot \
+        --unicode "initrd=\EFI\Gentoo\initramfs.img root=LABEL=BTROOT \
         rd.luks.uuid=$ROOT_UUID rd.luks.name=$ROOT_UUID=cryptroot \
         rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg \
         rd.luks.allow-discards \
@@ -464,7 +464,7 @@ function config_boot() {
     fi
     sleep 3
 
-    efibootmgr || { echo "Could not create boot entry"; exit 1; }
+    efibootmgr -v || { echo "Could not create boot entry"; exit 1; }
     read -rp "Does the efibootmgr look right? (y/n): " user_input
     if [[ "$user_input" =~ ^[Nn] ]]; then
         echo "Exiting..."
