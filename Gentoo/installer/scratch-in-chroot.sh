@@ -299,7 +299,26 @@ function config_for_session() {
 
 }
 
-# Needs to do before kernel setup
+function kernel () {
+
+    echo "-----------------------------------------------------------------------------------"
+    echo "You need to activate support for initramfs source file(s)"
+    echo "Please read the wiki or Readme.md"
+    echo "-----------------------------------------------------------------------------------"
+    echo "This will start a session that user can edit the kernel"
+    echo "the flags use in the config is:"
+    echo "--luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
+    echo "-----------------------------------------------------------------------------------"
+    sleep 10
+    echo "Starting genkernel with the specified flags..."
+    sleep 5
+    genkernel --luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "ERROR: Could not start/install genkernel"; exit 1; }
+
+    sleep 5
+    echo "Kernel build completed"
+
+}
+
 function dracut_update() {
 
     mkdir -p /efi/EFI/Gentoo 
@@ -310,7 +329,7 @@ function dracut_update() {
     
     echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
-    add_dracutmodules=" crypt crypt-gpg dm rootfs-block "
+    add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs "
     install_items=" /usr/bin/gpg "
     kernel_cmdline=""
 
@@ -320,7 +339,7 @@ function dracut_update() {
     if [ -z "$swapuuid" ]; then
         echo "No UUID found for ${sel_disk}1 (SWAP)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap "
+        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
         echo "The swap UUID is set to: $swapuuid"
     fi
     # END SWAP
@@ -330,8 +349,8 @@ function dracut_update() {
     if [ -z "$rootuuid" ]; then
         echo "No UUID found for ${sel_disk}2 (ROOT)"
     else
-        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot "
-        kernel_cmdline+=" root=/dev/mapper/cryptroot "
+        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
+        kernel_cmdline+=" root=/dev/mapper/cryptroot"
         echo "The root UUID is set to: $rootuuid"
     fi
     # END ROOT
@@ -341,7 +360,7 @@ function dracut_update() {
     if [ -z "$boot_key_uuid" ]; then
         echo "No UUID found for ${sel_disk_boot}2 (KEYFILE STORAGE)"
     else
-        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid "
+        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
         kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid "
         echo "The keyfile storage UUID is set to: $boot_key_uuid"
     fi
@@ -368,7 +387,7 @@ function dracut_update() {
             case $user_input in
                 [Nn]) 
                     echo "No warnings detected. Exiting loop."
-                    exit 0
+                    break 2
                     ;;
                 [Yy]) 
                     echo "Warnings detected! Fix any issues, then type 'retry' to run dracut again."
@@ -387,26 +406,6 @@ function dracut_update() {
             esac
         done
     done
-
-}
-
-function kernel () {
-
-    echo "-----------------------------------------------------------------------------------"
-    echo "You need to activate support for initramfs source file(s)"
-    echo "Please read the wiki or Readme.md"
-    echo "-----------------------------------------------------------------------------------"
-    echo "This will start a session that user can edit the kernel"
-    echo "the flags use in the config is:"
-    echo "--luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all"
-    echo "-----------------------------------------------------------------------------------"
-    sleep 10
-    echo "Starting genkernel with the specified flags..."
-    sleep 5
-    genkernel --luks --gpg --firmware --btrfs --keymap --oldconfig --save-config --menuconfig --install all || { echo "ERROR: Could not start/install genkernel"; exit 1; }
-
-    sleep 5
-    echo "Kernel build completed"
 
 }
 
