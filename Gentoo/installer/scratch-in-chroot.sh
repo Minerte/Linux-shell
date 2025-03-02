@@ -303,23 +303,29 @@ function dracut_update() {
     local sel_disk="$1"
     local sel_disk_boot="$2"
 
-    kernel_version=$(uname -r)
+    echo "Available kernel versions in /lib/modules/:"
+    ls /lib/modules/
+    read -rp "Please enter the kernel version you want to use (e.g., 6.6.74-gentoo): " kernel_version
+
     if [[ ! -d "/lib/modules/$kernel_version" ]]; then
         echo "Error: Kernel modules for version $kernel_version are missing."
-        echo "Please reinstall the kernel and try again."
+        echo "Please ensure the kernel is installed and try again."
         exit 1
     fi
-    
+
+    echo "Using kernel version: $kernel_version"
+
     echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
-    add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs "
-    install_items=" /usr/bin/gpg /luks-keyfile.gpg /swap-keyfile.gpg "
+    add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs usb usb-storage "
+    install_items=" /usr/bin/gpg /luks-keyfile.gpg /swap-keyfile.gpg /usr/bin/mount /usr/bin/umount /usr/bin/lsblk "
     kernel_cmdline=""
 
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
     rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
-    boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
-    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_uuid" ]]; then
+    boot_key_partuuid=$(blkid "${sel_disk_boot}2" -o value -s PARTUUID)
+
+    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_partuuid" ]]; then
         echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
         exit 1
     fi
@@ -341,13 +347,14 @@ function dracut_update() {
         echo "The root LABEL is set to: $rootlabel"
     fi
 
+    # Add LUKS parameters
     kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
-    kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
+    kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/luks-keyfile.gpg"
     kernel_cmdline+=" rd.luks.allow-discards"
     kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
-    kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid "
+    kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
 
-    lsblk -o NAME,UUID
+    lsblk -o NAME,UUID,PARTUUID
     echo "$kernel_cmdline will be added to /etc/dracut.conf"
     read -rp "Does the kernel_cmdline look right? (y/n): " user_input
     if [[ "$user_input" =~ ^[Nn] ]]; then
@@ -358,9 +365,9 @@ function dracut_update() {
     grep -q "^kernel_cmdline+=\"$kernel_cmdline\"" /etc/dracut.conf || echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
     grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
-    # Regenerate initramfs
+
     while true; do
-        dracut -f -v "$kernel_version"
+        dracut -f -v --kver "$kernel_version"
         sleep 3
 
         read -rp "Were there any warnings from 'dracut -f -v'? (y/n): " user_input
@@ -385,6 +392,7 @@ function dracut_update() {
                 ;;
         esac
     done
+
     # Verify initramfs contents
     while true; do
         if lsinitrd /boot/initramfs-*.img | grep -E "btrfs|crypt|gpg"; then
@@ -402,8 +410,7 @@ function dracut_update() {
 }
 
 function config_boot() {
-
-    echo "copy /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
+    echo "Copying /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
     if cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi; then
         echo "Successfully copied kernel-* to /efi/EFI/Gentoo/bzImage.efi"
     else
@@ -420,7 +427,6 @@ function config_boot() {
         fi
     fi
 
-    # Copy the latest initramfs file
     if cp "$(ls -1t /boot/initramfs-* | head -n 1)" /efi/EFI/Gentoo/initramfs.img; then
         echo "Successfully copied the latest initramfs to /efi/EFI/Gentoo/initramfs.img"
     else
@@ -435,7 +441,7 @@ function config_boot() {
 
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
     rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
-    boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+    boot_key_partuuid=$(blkid "${sel_disk_boot}2" -o value -s PARTUUID)
     rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
     if [[ -z "$rootlabel" ]]; then
         echo "No LABEL found for the root partition (${sel_disk}2)."
@@ -448,15 +454,13 @@ function config_boot() {
         echo "The root LABEL is set to: $rootlabel"
     fi
 
-    # Ensure UUIDs are retrieved successfully
-    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_uuid" ]]; then
-        echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
+    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_partuuid" ]]; then
+        echo "Error: Missing one or more UUIDs or PARTUUIDs. Ensure disks are properly configured."
         exit 1
     fi
     sleep 3
 
     while true; do
-        # Create the EFI boot entry
         efibootmgr --create --disk "$sel_disk_boot" --part 1 \
             --label "Gentoo" \
             --loader "\EFI\Gentoo\bzImage.efi" \
@@ -464,10 +468,10 @@ function config_boot() {
             root=LABEL=$rootlabel \
             rootflags=subvol=activeroot \
             rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot \
-            rd.luks.key=UUID=$boot_key_uuid:/luks-keyfile.gpg:gpg \
+            rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/luks-keyfile.gpg \
             rd.luks.allow-discards \
             rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap \
-            rd.luks.key=UUID=$boot_key_uuid:/swap-keyfile.gpg:gpg"
+            rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
 
         if [[ $? -eq 0 ]]; then
             echo "EFI boot entry created successfully."
@@ -476,7 +480,6 @@ function config_boot() {
             exit 1
         fi
 
-        # Display the boot entries for review
         echo "Current boot entries:"
         efibootmgr -v
         read -rp "Does the efibootmgr look right? (y/n): " user_input
@@ -485,7 +488,6 @@ function config_boot() {
             continue  # Restart the loop
         fi
 
-        # Display the contents of /efi/EFI/Gentoo/ for review
         echo "Contents of /efi/EFI/Gentoo/:"
         ls -lh /efi/EFI/Gentoo/
         read -rp "Does the /efi/EFI/Gentoo look right? (y/n): " user_input
@@ -498,7 +500,6 @@ function config_boot() {
         echo "Boot entry and /efi/EFI/Gentoo/ look correct. Proceeding..."
         break
     done
-
 }
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!"
