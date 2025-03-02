@@ -310,6 +310,7 @@ function config_portage () {
     mv ~/Linux-shell-main/Gentoo/portage/env/no-lto /mnt/gentoo/etc/portage/env/
     mv ~/Linux-shell-main/Gentoo/portage/make.conf /mnt/gentoo/etc/portage/
     mv ~/Linux-shell-main/Gentoo/portage/package.env /mnt/gentoo/etc/portage/
+    mv ~/Linux-shell-main/Gentoo/portage/package.unmask /mnt/gentoo/etc/portage/
 
     mv ~/Linux-shell-main/Gentoo/portage/package.use/* /mnt/gentoo/etc/portage/package.use/
     mv ~root/Linux-shell-main/Gentoo/portage/package.accept_keywords/* /mnt/gentoo/etc/portage/package.accept_keywords/
@@ -334,10 +335,11 @@ function setup_chroot() {
     cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
     chmod +x /mnt/gentoo/scratch-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
     echo "everything is mounted and ready to chroot"
-    echo "chrooting will be in 10 sec"
     echo "After the chroot is done it will be in another bash session"
-    sleep 10
-    chroot /mnt/gentoo /bin/bash -c "./scratch-in-chroot.sh" || { echo "failed to chroot"; exit 1; }
+    echo "chroot with this comand!"
+    eech "chroot /mnt/gentoo /bin/bash"
+    echo "After chroot run ./scratch-in-chroot.sh"
+    sleep 5
 
 }
 
