@@ -338,7 +338,7 @@ function dracut_update() {
     kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
     kernel_cmdline+=" rd.luks.allow-discards"
     kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
-    kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
+    kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid "
 
     lsblk -o NAME,UUID
     echo "$kernel_cmdline will be added to /etc/dracut.conf"
@@ -507,8 +507,8 @@ chroot_first "$selected_disk_Boot"
 remerge_and_core_package
 openrc_runtime
 config_for_session
-dracut_update "$selected_disk" "$selected_disk_Boot"
 kernel
+dracut_update "$selected_disk" "$selected_disk_Boot"
 config_boot "$selected_disk" "$selected_disk_Boot"
 echo "everything works it seams. You can start to umount and reboot!"
 echo "yeay"
