@@ -302,11 +302,18 @@ function dracut_update() {
     echo "Updating dracut and preparing initramfs for kernel build..."
     local sel_disk="$1"
     local sel_disk_boot="$2"
+
+    kernel_version=$(uname -r)
+    if [[ ! -d "/lib/modules/$kernel_version" ]]; then
+        echo "Error: Kernel modules for version $kernel_version are missing."
+        echo "Please reinstall the kernel and try again."
+        exit 1
+    fi
     
     echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
     add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs "
-    install_items=" /usr/bin/gpg "
+    install_items=" /usr/bin/gpg /luks-keyfile.gpg /swap-keyfile.gpg "
     kernel_cmdline=""
 
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
@@ -353,7 +360,7 @@ function dracut_update() {
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
     # Regenerate initramfs
     while true; do
-        dracut -f -v
+        dracut -f -v "$kernel_version"
         sleep 3
 
         read -rp "Were there any warnings from 'dracut -f -v'? (y/n): " user_input
