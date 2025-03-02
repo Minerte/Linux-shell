@@ -337,7 +337,7 @@ function setup_chroot() {
     echo "everything is mounted and ready to chroot"
     echo "After the chroot is done it will be in another bash session"
     echo "chroot with this comand!"
-    eech "chroot /mnt/gentoo /bin/bash"
+    echo "chroot /mnt/gentoo /bin/bash"
     echo "After chroot run ./scratch-in-chroot.sh"
     sleep 5
 
