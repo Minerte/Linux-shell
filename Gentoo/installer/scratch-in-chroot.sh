@@ -60,26 +60,6 @@ function chroot_first() {
         exit 1
     fi
 
-    while true; do
-        eselect profile list
-        echo "Select a profile number from the list above."
-        read -rp "Enter profile number (or press Enter to skip): " profile_number
-
-        if [[ -z "$profile_number" ]]; then
-            echo "Skipping profile selection."
-            break
-        fi
-
-        # Check if the profile exists
-        if eselect profile list | grep -qE "^\s*$profile_number"; then
-            eselect profile set "$profile_number"
-            echo "Profile set to $(eselect profile show)"
-            break
-        else
-            echo "Invalid profile number! Try again."
-        fi
-    done
-
     # shellcheck disable=SC1091
     env-update && source /etc/profile
     export PS1="(chroot) ${PS1}"
@@ -153,7 +133,6 @@ function remerge_and_core_package () {
 
         if [[ $? -eq 0 ]]; then
             echo "Core packages installed successfully!"
-            mkdir -p /efi/EFI/Gentoo
             break
         else
             echo "Could not merge! Check dependencies and flags."
@@ -320,9 +299,6 @@ function kernel () {
 }
 
 function dracut_update() {
-
-    mkdir -p /efi/EFI/Gentoo 
-
     echo "Updating dracut and preparing initramfs for kernel build..."
     local sel_disk="$1"
     local sel_disk_boot="$2"
@@ -333,80 +309,89 @@ function dracut_update() {
     install_items=" /usr/bin/gpg "
     kernel_cmdline=""
 
-
-    # FOR SWAP
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
-    if [ -z "$swapuuid" ]; then
-        echo "No UUID found for ${sel_disk}1 (SWAP)"
-    else
-        kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
-        echo "The swap UUID is set to: $swapuuid"
-    fi
-    # END SWAP
-
-    # FOR ROOT
     rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
-    if [ -z "$rootuuid" ]; then
-        echo "No UUID found for ${sel_disk}2 (ROOT)"
-    else
-        kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
-        kernel_cmdline+=" root=/dev/mapper/cryptroot"
-        echo "The root UUID is set to: $rootuuid"
-    fi
-    # END ROOT
-
-    # FOR BOOT (KEYFILE)
     boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
-    if [ -z "$boot_key_uuid" ]; then
-        echo "No UUID found for ${sel_disk_boot}2 (KEYFILE STORAGE)"
-    else
-        kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
-        kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid "
-        echo "The keyfile storage UUID is set to: $boot_key_uuid"
+    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_uuid" ]]; then
+        echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
+        exit 1
     fi
-    # END BOOT
+
+    # Retrieve the root partition label
+    rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
+    if [ -z "$rootlabel" ]; then
+        echo "No LABEL found for ${sel_disk}2 (ROOT)"
+        read -rp "Please enter a LABEL for the root partition (or press Enter to use UUID instead): " rootlabel
+        if [ -z "$rootlabel" ]; then
+            echo "No LABEL provided. Falling back to UUID."
+            kernel_cmdline+=" root=UUID=$rootuuid rootflags=subvol=activeroot"
+        else
+            kernel_cmdline+=" root=LABEL=$rootlabel rootflags=subvol=activeroot"
+            echo "The root LABEL is set to: $rootlabel"
+        fi
+    else
+        kernel_cmdline+=" root=LABEL=$rootlabel rootflags=subvol=activeroot"
+        echo "The root LABEL is set to: $rootlabel"
+    fi
+
+    kernel_cmdline+=" rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot"
+    kernel_cmdline+=" rd.luks.key=/luks-keyfile.gpg:UUID=$boot_key_uuid"
+    kernel_cmdline+=" rd.luks.allow-discards"
+    kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
+    kernel_cmdline+=" rd.luks.key=/swap-keyfile.gpg:UUID=$boot_key_uuid"
 
     lsblk -o NAME,UUID
     echo "$kernel_cmdline will be added to /etc/dracut.conf"
-    read -rp "Does the kernel_cmdline+= to /etc/dracut.conf look right? (y/n): " user_input
+    read -rp "Does the kernel_cmdline look right? (y/n): " user_input
     if [[ "$user_input" =~ ^[Nn] ]]; then
         echo "Exiting..."
         exit 1
     fi
+
     grep -q "^kernel_cmdline+=\"$kernel_cmdline\"" /etc/dracut.conf || echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
     grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
-    sleep 3
+    # Regenerate initramfs
     while true; do
         dracut -f -v
         sleep 3
 
-        while true; do
-            read -rp "Were there any warnings from 'dracut -f -v'? (y/n): " user_input
-
-            case $user_input in
-                [Nn]) 
-                    echo "No warnings detected. Exiting loop."
-                    break 2
-                    ;;
-                [Yy]) 
-                    echo "Warnings detected! Fix any issues, then type 'retry' to run dracut again."
-                    ;;
-                retry)
-                    echo "Retrying dracut..."
-                    break
-                    ;;
-                exit)
-                    echo "Exiting script."
-                    exit 1
-                    ;;
-                *)
-                    echo "Invalid input. Type 'y' if there were warnings, 'n' if everything is fine, 'retry' to run dracut again, or 'exit' to quit."
-                    ;;
-            esac
-        done
+        read -rp "Were there any warnings from 'dracut -f -v'? (y/n): " user_input
+        case $user_input in
+            [Nn]) 
+                echo "No warnings detected. Exiting loop."
+                break
+                ;;
+            [Yy]) 
+                echo "Warnings detected! Fix any issues, then type 'retry' to run dracut again."
+                ;;
+            retry)
+                echo "Retrying dracut..."
+                continue
+                ;;
+            exit)
+                echo "Exiting script."
+                exit 1
+                ;;
+            *)
+                echo "Invalid input. Type 'y' if there were warnings, 'n' if everything is fine, 'retry' to run dracut again, or 'exit' to quit."
+                ;;
+        esac
     done
-
+    # Verify initramfs contents
+    while true; do
+        if lsinitrd /boot/initramfs-*.img | grep -E "btrfs|crypt|gpg"; then
+            read -rp "Does the initramfs have btrfs, crypt, and gpg support? (y/n): " user_input
+            if [[ "$user_input" =~ ^[Yy] ]]; then
+                echo "Great! Exiting loop."
+                break
+            else
+                echo "Fix any issues and try again."
+            fi
+        else
+            echo "Initramfs is missing btrfs, crypt, or gpg support. Please fix the issue and try again."
+        fi
+    done
 }
 
 function config_boot() {
@@ -428,11 +413,11 @@ function config_boot() {
         fi
     fi
 
-    # Copy initramfs
-    if cp /boot/initramfs-* /efi/EFI/Gentoo/initramfs.img; then
-        echo "Successfully copied initramfs-* to /efi/EFI/Gentoo/initramfs.img"
+    # Copy the latest initramfs file
+    if cp "$(ls -1t /boot/initramfs-* | head -n 1)" /efi/EFI/Gentoo/initramfs.img; then
+        echo "Successfully copied the latest initramfs to /efi/EFI/Gentoo/initramfs.img"
     else
-        echo "Failed to copy initramfs-* to /efi/EFI/Gentoo/initramfs.img"
+        echo "Failed to copy initramfs to /efi/EFI/Gentoo/initramfs.img"
         exit 1
     fi
     echo "All files copied successfully!"
@@ -441,51 +426,71 @@ function config_boot() {
     local sel_disk="$1"
     local sel_disk_boot="$2"
 
-    SWAP_UUID=$(blkid "${sel_disk}1" -o value -s UUID)
-    ROOT_UUID=$(blkid "${sel_disk}2" -o value -s UUID)
-    BOOT_KEY_UUID=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+    swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
+    rootuuid=$(blkid "${sel_disk}2" -o value -s UUID)
+    boot_key_uuid=$(blkid "${sel_disk_boot}2" -o value -s UUID)
+    rootlabel=$(blkid "${sel_disk}2" -o value -s LABEL)
+    if [[ -z "$rootlabel" ]]; then
+        echo "No LABEL found for the root partition (${sel_disk}2)."
+        read -rp "Please enter a LABEL for the root partition: " rootlabel
+        if [[ -z "$rootlabel" ]]; then
+            echo "No LABEL provided. Exiting..."
+            exit 1
+        fi
+    else
+        echo "The root LABEL is set to: $rootlabel"
+    fi
 
     # Ensure UUIDs are retrieved successfully
-    if [[ -z "$SWAP_UUID" || -z "$ROOT_UUID" || -z "$BOOT_KEY_UUID" ]]; then
+    if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_uuid" ]]; then
         echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
         exit 1
     fi
     sleep 3
 
-    # Create EFI boot entry (using UUID for Boot Key Partition)
-    efibootmgr --create --disk "$sel_disk_boot" --part 1 \
-        --label "Gentoo" \
-        --loader "\EFI\Gentoo\bzImage.efi" \
-        --unicode "initrd=\EFI\Gentoo\initramfs.img root=/dev/mapper/cryptroot \
-        rd.luks.uuid=$ROOT_UUID rd.luks.name=$ROOT_UUID=cryptroot \
-        rd.luks.key=UUID=$BOOT_KEY_UUID:/luks-keyfile.gpg:gpg \
-        rd.luks.allow-discards \
-        rd.luks.uuid=$SWAP_UUID rd.luks.name=$SWAP_UUID=cryptswap \
-        rd.luks.key=UUID=$BOOT_KEY_UUID:/swap-keyfile.gpg:gpg"
+    while true; do
+        # Create the EFI boot entry
+        efibootmgr --create --disk "$sel_disk_boot" --part 1 \
+            --label "Gentoo" \
+            --loader "\EFI\Gentoo\bzImage.efi" \
+            --unicode "initrd=\EFI\Gentoo\initramfs.img \
+            root=LABEL=$rootlabel \
+            rootflags=subvol=activeroot \
+            rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot \
+            rd.luks.key=UUID=$boot_key_uuid:/luks-keyfile.gpg:gpg \
+            rd.luks.allow-discards \
+            rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap \
+            rd.luks.key=UUID=$boot_key_uuid:/swap-keyfile.gpg:gpg"
 
-    if [[ $? -eq 0 ]]; then
-        echo "EFI boot entry created successfully."
-    else
-        echo "Error: Failed to create EFI boot entry."
-        exit 1
-    fi
-    sleep 3
+        if [[ $? -eq 0 ]]; then
+            echo "EFI boot entry created successfully."
+        else
+            echo "Error: Failed to create EFI boot entry."
+            exit 1
+        fi
 
-    efibootmgr -v || { echo "Could not create boot entry"; exit 1; }
-    read -rp "Does the efibootmgr look right? (y/n): " user_input
-    if [[ "$user_input" =~ ^[Nn] ]]; then
-        echo "Exiting..."
-        exit 1
-    fi
-    sleep 3
+        # Display the boot entries for review
+        echo "Current boot entries:"
+        efibootmgr -v
+        read -rp "Does the efibootmgr look right? (y/n): " user_input
+        if [[ "$user_input" =~ ^[Nn] ]]; then
+            echo "Boot entry does not look right. Please fix the issue and try again."
+            continue  # Restart the loop
+        fi
 
-    ls -lh /efi/EFI/Gentoo/
-    read -rp "Does the /efi/EFI/Gentoo look right? (y/n): " user_input
-    if [[ "$user_input" =~ ^[Nn] ]]; then
-        echo "Exiting..."
-        exit 1
-    fi
-    sleep 3
+        # Display the contents of /efi/EFI/Gentoo/ for review
+        echo "Contents of /efi/EFI/Gentoo/:"
+        ls -lh /efi/EFI/Gentoo/
+        read -rp "Does the /efi/EFI/Gentoo look right? (y/n): " user_input
+        if [[ "$user_input" =~ ^[Nn] ]]; then
+            echo "Contents of /efi/EFI/Gentoo/ do not look right. Please fix the issue and try again."
+            continue  # Restart the loop
+        fi
+
+        # If everything looks good, break out of the loop
+        echo "Boot entry and /efi/EFI/Gentoo/ look correct. Proceeding..."
+        break
+    done
 
 }
 
