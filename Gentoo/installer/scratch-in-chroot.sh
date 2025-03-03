@@ -317,8 +317,8 @@ function dracut_update() {
 
     echo "Kernel command line generated:"
     # Set Dracut modules for encryption support
-    add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs usb usb-storage "
-    install_items=" /usr/bin/gpg /luks-keyfile.gpg /swap-keyfile.gpg /usr/bin/mount /usr/bin/umount /usr/bin/lsblk "
+    add_dracutmodules=" crypt crypt-gpg dm rootfs-block btrfs "
+    install_items=" /usr/bin/gpg /luks-keyfile.gpg /swap-keyfile.gpg "
     kernel_cmdline=""
 
     swapuuid=$(blkid "${sel_disk}1" -o value -s UUID)
@@ -352,7 +352,7 @@ function dracut_update() {
     kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/luks-keyfile.gpg"
     kernel_cmdline+=" rd.luks.allow-discards"
     kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
-    kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
+    kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg "
 
     lsblk -o NAME,UUID,PARTUUID
     echo "$kernel_cmdline will be added to /etc/dracut.conf"
@@ -362,10 +362,50 @@ function dracut_update() {
         exit 1
     fi
 
+    # Update /etc/dracut.conf
     grep -q "^kernel_cmdline+=\"$kernel_cmdline\"" /etc/dracut.conf || echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
     grep -q "^add_dracutmodules+=\"$add_dracutmodules\"" /etc/dracut.conf || echo "add_dracutmodules+=\"$add_dracutmodules\"" >> /etc/dracut.conf
     grep -q "^install_items+=\"$install_items\"" /etc/dracut.conf || echo "install_items+=\"$install_items\"" >> /etc/dracut.conf
 
+    # Create a custom Dracut hook to handle GPG decryption
+    mkdir -p /usr/lib/dracut/hooks/pre-mount
+    cat << 'EOF' > /usr/lib/dracut/hooks/pre-mount/decrypt_keyfile.sh
+#!/bin/bash
+
+# Mount the keyfile partition
+mkdir -p /media/keydrive
+mount /dev/disk/by-partuuid/$boot_key_partuuid /media/keydrive
+
+# Decrypt the GPG-encrypted keyfiles
+gpg --batch --passphrase "your_passphrase" --decrypt /media/keydrive/luks-keyfile.gpg > /tmp/luks-keyfile
+gpg --batch --passphrase "your_passphrase" --decrypt /media/keydrive/swap-keyfile.gpg > /tmp/swap-keyfile
+
+# Use the decrypted keyfiles to unlock the LUKS volumes
+cryptsetup luksOpen --key-file=/tmp/luks-keyfile /dev/disk/by-uuid/$rootuuid cryptroot
+cryptsetup luksOpen --key-file=/tmp/swap-keyfile /dev/disk/by-uuid/$swapuuid cryptswap
+
+# Clean up
+shred -u /tmp/luks-keyfile
+shred -u /tmp/swap-keyfile
+umount /keydrive
+EOF
+
+    chmod +x /usr/lib/dracut/hooks/pre-mount/decrypt_keyfile.sh
+
+    while true; do
+    echo "Please edit the /usr/lib/dracut/hooks/pre-mount/decrypt_keyfile.sh"
+    echo "and replace your_passphrase with yours gpg passphrase from disk setup"
+    read -rp "Did you change it? (y/n): " user_input
+        if [[ "$user_input" =~  ^[Yy] ]]; then
+            echo "Great! Proceeding..."
+            break
+        else
+            echo "Fix passphrase"
+            continue
+        fi
+    done
+
+    # Regenerate the initramfs
     while true; do
         dracut -f -v --kver "$kernel_version"
         sleep 3
