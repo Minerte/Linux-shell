@@ -12,6 +12,6 @@ dev-lang/python ssl
 dev-libs/nettle gmp
 
 # Core packages
-app-crypt/gnupg smartcard tools ssl
+app-crypt/gnupg smartcard usb tools ssl
 dev-vcs/git gpg highlight curl
 sys-block/parted device-mapper
