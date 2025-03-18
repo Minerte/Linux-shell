@@ -1,4 +1,4 @@
-# This is both a guide and what the autoscript is doing
+# This is a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
 
 The disk will look something like this when we done partitioning.
