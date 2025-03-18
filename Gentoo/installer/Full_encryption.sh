@@ -36,15 +36,31 @@ Disk_prep() {
   local root_disk="$1"
   local boot_disk="$2"
   sleep 3
-
   read -rp "You are about to format the selected disk: $boot_disk and $root_disk (y/n)" confirm
   if [[ "$confirm" != "y" ]]; then
     echo "Abort the script."
     exit 1
   fi
-
   echo "We will now partition the selected disk: $boot_disk"
-  Bootmount "$boot_disk"
+  echo "Now we will partition the selected disk: $boot_disk for boot and keyfile"
+  parted --script "$boot_disk" \
+    mklabel gpt \
+    mkpart primary fat32 0% 1G \
+    set 1 esp on \
+    mkpart primary ext4 1G 2G \
+    set 2 boot on
+  sleep 3 
+
+  echo "Making filesystem for bootdrive and keydrive"
+  mkfs.vfat -F 32 "${boot_disk}1"
+  mkfs.ext4 "${boot_disk}2"
+  echo "Makeing directory for mount in /media/keydrive"
+  mkdir /media/keydrive
+  echo "Mounting ${boot_disk}2 to /media/keydrive"
+  mount "${boot_disk}2" /media/keydrive
+  echo "Boot is now mounted"
+  sleep 3 
+
   echo "Boot disk is now done"
   sleep 3
   echo "-------------------------------------------------------------------------"
@@ -63,7 +79,7 @@ Disk_prep() {
   fi
 
   if [[ "$choice" =~ ^[Yy] ]]; then
-  echo "Now we will partition for Swap and Root"
+    echo "Now we will partition for Swap and Root"
     while true; do 
       echo "The root partition will be like 100% - SWAP"
       read -rp "Please select a SWAP size (in GB): " swap_size
@@ -88,7 +104,6 @@ Disk_prep() {
     Encryption_swap "$root_disk"
     echo "Root with swap are now done"
   fi
-
   echo "Disk prep are now done"
 }
 
