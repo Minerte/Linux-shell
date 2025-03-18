@@ -38,12 +38,12 @@ Disk_prep() {
   sleep 3
 
   read -rp "You are about to format the selected disk: $boot_disk and $root_disk (y/n)" confirm
-  echo "We will now partition the selected disk: $boot_disk"
   if [[ "$confirm" != "y" ]]; then
     echo "Abort the script."
     exit 1
   fi
 
+  echo "We will now partition the selected disk: $boot_disk"
   Bootmount "$boot_disk"
   echo "Boot disk is now done"
   sleep 3
@@ -88,6 +88,8 @@ Disk_prep() {
     Encryption_swap "$root_disk"
     echo "Root with swap are now done"
   fi
+
+  echo "Disk prep are now done"
 }
 
 Prep_root() {
@@ -142,9 +144,12 @@ Stage_file() {
 
 System_config() {
   config-system
+  swap-no-or-yes # to edit the fstab if swap is enable
   echo "Copying over .config for kernel to chroot directory"
-  mv /mnt/gentoo/usr/src/linux/.config /mnt/gentoo/usr/src/linux/.config.bak
-  cp ~/Linux-shell-main/Gentoo/portage/.config /mnt/gentoo/usr/src/linux/.config
+  # Need to do before kernel compile in chroot
+  # mv /mnt/gentoo/usr/src/linux/.config /mnt/gentoo/usr/src/linux/.config.bak
+  # cp ~/Linux-shell-main/Gentoo/portage/.config /mnt/gentoo/tmp/.config
+  echo "config done"
 }
 
 chroot_ready() {
@@ -165,21 +170,28 @@ chroot_ready() {
   sleep 5
 
   echo "Coping over chroot.sh into chroot"
-  cp /root/Linux-shell-main/Gentoo/installer/scratch-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
-  chmod +x /mnt/gentoo/scratch-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
+  cp /root/Linux-shell-main/Gentoo/installer/Encyption-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+  chmod +x /mnt/gentoo/Encryption-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
   echo "everything is mounted and ready to chroot"
   echo "After the chroot is done it will be in another bash session"
   echo "chroot with this comand!"
   echo "chroot /mnt/gentoo /bin/bash"
-  echo "After chroot run ./scratch-in-chroot.sh"
+  echo "After chroot run ./Encryption-in-chroot.sh"
   sleep 5
 }
 
 export GPG_TTY=$(tty)
 lsblk -d -n -o NAME,SIZE,UUID,LABEL | awk '{print "/dev/" $1 " - " $2}'
-read -rp "Select the Boot drive: " selected_boot_disk
-read -rp "Select the Root drive: " selected_root_disk
-validate_block_device "$selected_root_disk" "$selected_boot_disk"
+
+while true; do
+  read -rp "Select the Boot drive: " selected_boot_disk
+  read -rp "Select the Root drive: " selected_root_disk
+  if validate_block_device "$selected_root_disk" "$selected_boot_disk"; then
+    break
+  else
+    echo "Please try again"
+  fi
+done
 Disk_prep "$selected_root_disk" "$selected_boot_disk"
 Prep_root
 Stage_file

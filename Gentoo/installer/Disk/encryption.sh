@@ -52,10 +52,12 @@ Encryption_no_swap() {
   echo "GPG symmetric encryption of the root-keyfile (no swap)"
   gpg --symmetric --cipher-algo AES256 --output /media/keydrive/root-keyfile.gpg /media/keydrive/root-keyfile
   echo "GPG encryption successfully for root (no swap)"
+  sleep 3
 
   echo "We will now delete the none gpg key!"
   shred /media/keydrive/root-keyfile
   echo "keyfile shreded"
+  sleep 3
 
   echo "we need to decrypt and format and open disk"
   gpg --decrypt --output /tmp/root-keyfile /media/keydrive/root-keyfile.gpg

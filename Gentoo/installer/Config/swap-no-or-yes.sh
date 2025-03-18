@@ -1,26 +1,31 @@
 #!/bin/bash
 
-# Check if swap is enabled and display swap information
-echo "Checking for swap partitions..."
+swap-no-or-yes() {
+  FSTAB_FILE="/mnt/gentoo/etc/fstab"
 
-# Use swapon to check active swap devices
-swap_info=$(swapon --show)
+  # Entry to add if swap is detected
+  CRYPTSWAP_ENTRY="/dev/mapper/cryptswap      none    swap    sw    0 0"
 
-if [ -z "$swap_info" ]; then
+  # Check if swap is enabled
+  echo "Checking for swap partitions..."
+
+  # Use swapon to check active swap devices
+  swap_info=$(swapon --show)
+
+  if [ -z "$swap_info" ]; then
     echo "No active swap partition or file found."
-else
+    echo "No changes will be made to $FSTAB_FILE."
+  else
     echo "Swap partition or file found:"
     echo "$swap_info"
-fi
 
-# Optional: Check for swap partitions using blkid
-echo "Checking for swap partitions using blkid..."
-
-swap_partitions=$(blkid -t TYPE=swap)
-
-if [ -z "$swap_partitions" ]; then
-    echo "No swap partitions detected using blkid."
-else
-    echo "Swap partitions detected:"
-    echo "$swap_partitions"
-fi
+    # Check if the cryptswap entry already exists in fstab
+    if grep -q "/dev/mapper/cryptswap" "$FSTAB_FILE"; then
+      echo "The cryptswap entry already exists in $FSTAB_FILE. No changes needed."
+      else
+        echo "Adding cryptswap entry to $FSTAB_FILE..."
+        echo "$CRYPTSWAP_ENTRY" | tee -a "$FSTAB_FILE" > /dev/null
+        echo "Cryptswap entry added successfully."
+      fi
+  fi
+}
