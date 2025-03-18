@@ -10,7 +10,9 @@ for dir in ~/Disk ~/Config ~/Stage_3_download; do
   for script in "$dir"/*; do
     if [[ -f "$script" ]]; then
       chmod +x "$script"
+      echo "Sourcing $script"
       source "$script"
+      sleep 30
     fi
   done
 done
@@ -60,6 +62,15 @@ Disk_prep() {
   mount "${boot_disk}2" /media/keydrive
   echo "Boot is now mounted"
   sleep 3 
+
+  # 
+  #
+  #
+  # Need to fix that the function from another directory dont execute
+  #
+  #
+  #
+  #
 
   echo "Boot disk is now done"
   sleep 3
