@@ -176,7 +176,7 @@ chroot_ready() {
   echo "After the chroot is done it will be in another bash session"
   echo "chroot with this comand!"
   echo "chroot /mnt/gentoo /bin/bash"
-  echo "After chroot run ./Encryption-in-chroot.sh"
+  echo "After chroot run ./Chroot/Encryption-in-chroot.sh"
   sleep 5
 }
 
