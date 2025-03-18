@@ -67,7 +67,7 @@ Disk_prep() {
   #
   #
   # Need to fix that the function from another directory dont execute
-  #
+  # The sourcing is now working properly
   #
   #
   #
