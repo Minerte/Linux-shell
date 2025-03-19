@@ -5,14 +5,13 @@ if [ "$(id -u)" != "0" ]; then
   echo "This script must be run as root"
   exit 1
 fi 
-for dir in ~/Chroot-sync ~/emerge ~/kernel; do
-    for script in "$dir"/*.sh; do  # Only source .sh files
-        if [[ -f "$script" ]]; then
-            echo "Sourcing $script"
-            source "$script"
-        fi
-    done
-done
+
+source ~/Chroot/Chroot-sync/chroot-first.sh
+source ~/Chroot/Chroot-sync/Openrc-runtime.sh
+source ~/Chroot/emerge/recompile.sh
+source ~/Chroot/kernel/kernel-compile.sh
+source ~/Chroot/kernel/Finish.sh
+
 validate_block_device() {
   local boot_disk="$1"
   local root_disk="$2"
