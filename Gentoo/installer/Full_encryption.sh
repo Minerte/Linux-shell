@@ -114,18 +114,19 @@ Disk_prep() {
 }
 
 Prep_root() {
-  mkdir /mnt/root
+
   mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
-  mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root/
+  mkdir /mnt/root
+  mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root
 
   echo "Creation of subvolumes"
   for sub in activeroot home etc var log tmp; do 
-    btrfs subvolumes create "/mnt/root/$sub"  || { echo "Failed to create subvolume $sub"; exit 1; }
+    btrfs subvolume create /mnt/root/$sub  || { echo "Failed to create subvolume $sub"; exit 1; }
   done
 
   echo "Mounting subvolumes to /mnt/gentoo"
   mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
-  mkdir /mnt/gentoo/{home,etc,var,log}
+  mkdir /mnt/gentoo/{home,etc,var,log,tmp}
   for sub in home etc var log tmp; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub   || { echo "Failed to mount subvolume $sub"; exit 1; }
   done
