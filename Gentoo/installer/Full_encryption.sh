@@ -10,7 +10,7 @@ source ~/Linux-shell-main/Gentoo/installer/Disk/01-Encryption.sh
 source ~/Linux-shell-main/Gentoo/installer/Config/04-swap-no-or-yes.sh
 source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh
 source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh
-source ~/Linux-shell-main/Gentoo/installerConfig/05-Config-system.sh
+source ~/Linux-shell-main/Gentoo/installer/Config/05-Config-system.sh
 
 validate_block_device() {
     local boot_disk="$1"
@@ -120,11 +120,15 @@ Prep_root() {
 
   echo "Creation of subvolumes"
   for sub in activeroot home etc var log tmp; do 
-    btrfs subvolumes create "/mnt/root/$sub"
+    btrfs subvolumes create "/mnt/root/$sub"  || { echo "Failed to create subvolume $sub"; exit 1; }
   done
 
   echo "Mounting subvolumes to /mnt/gentoo"
   mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
+  mkdir /mnt/gentoo/{home,etc,var,log}
+  for sub in home etc var log tmp; do
+        mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub   || { echo "Failed to mount subvolume $sub"; exit 1; }
+  done
 
   lsblk 
   read -rp "Does the disk layout look correct? (y/n): " confirm
@@ -191,7 +195,7 @@ chroot_ready() {
   sleep 5
 
   echo "Coping over chroot.sh into chroot"
-  cp /root/Linux-shell-main/Gentoo/installer/Chroot/Encyption-in-chroot.sh /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+  cp /root/Linux-shell-main/Gentoo/installer/Chroot/* /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
   chmod +x /mnt/gentoo/Chroot/Encryption-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
   echo "everything is mounted and ready to chroot"
   echo "After the chroot is done it will be in another bash session"
