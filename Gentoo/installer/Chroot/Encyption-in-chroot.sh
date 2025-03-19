@@ -6,11 +6,11 @@ if [ "$(id -u)" != "0" ]; then
   exit 1
 fi 
 
-source ~/Chroot/Chroot-sync/chroot-first.sh
-source ~/Chroot/Chroot-sync/Openrc-runtime.sh
-source ~/Chroot/emerge/recompile.sh
-source ~/Chroot/kernel/kernel-compile.sh
-source ~/Chroot/kernel/Finish.sh
+source ~/Chroot-sync/chroot-first.sh
+source ~/Chroot-sync/Openrc-runtime.sh
+source ~/emerge/recompile.sh
+source ~/kernel/kernel-compile.sh
+source ~/kernel/Finish.sh
 
 validate_block_device() {
   local boot_disk="$1"
