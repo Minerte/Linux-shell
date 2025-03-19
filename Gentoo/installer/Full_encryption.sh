@@ -5,8 +5,7 @@ if [ "$(id -u)" != "0" ]; then
   echo "This script must be run as root"
   exit 1
 fi 
-
-for dir in ~/Disk ~/Config ~/Stage_3_download; do
+for dir in ~/Disk ~/Config ~/Stage_and_verify; do
     for script in "$dir"/*.sh; do  # Only source .sh files
         if [[ -f "$script" ]]; then
             echo "Sourcing $script"
