@@ -5,14 +5,12 @@ if [ "$(id -u)" != "0" ]; then
   echo "This script must be run as root"
   exit 1
 fi 
-for dir in ~/Disk ~/Config ~/Stage_and_verify; do
-    for script in "$dir"/*.sh; do  # Only source .sh files
-        if [[ -f "$script" ]]; then
-            echo "Sourcing $script"
-            source "$script"
-        fi
-    done
-done
+
+source ~/Linux-shell/Gentoo/installer/Disk/01-Encryption.sh
+source ~/Linux-shell/Gentoo/installer/Config/04-swap-no-or-yes.sh
+source ~/Linux-shell/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh
+source ~/Linux-shell/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh
+source ~/Linux-shell/Gentoo/installerConfig/05-Config-system.sh
 
 validate_block_device() {
     local boot_disk="$1"
