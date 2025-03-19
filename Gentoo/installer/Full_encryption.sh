@@ -6,11 +6,11 @@ if [ "$(id -u)" != "0" ]; then
   exit 1
 fi 
 
-source ~/Linux-shell/Gentoo/installer/Disk/01-Encryption.sh
-source ~/Linux-shell/Gentoo/installer/Config/04-swap-no-or-yes.sh
-source ~/Linux-shell/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh
-source ~/Linux-shell/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh
-source ~/Linux-shell/Gentoo/installerConfig/05-Config-system.sh
+source ~/Gentoo/installer/Disk/01-Encryption.sh
+source ~/Gentoo/installer/Config/04-swap-no-or-yes.sh
+source ~/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh
+source ~/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh
+source ~/Gentoo/installerConfig/05-Config-system.sh
 
 validate_block_device() {
     local boot_disk="$1"
