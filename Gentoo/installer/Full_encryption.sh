@@ -7,14 +7,12 @@ if [ "$(id -u)" != "0" ]; then
 fi 
 
 for dir in ~/Disk ~/Config ~/Stage_3_download; do
-  for script in "$dir"/*; do
-    if [[ -f "$script" ]]; then
-      chmod +x "$script"
-      echo "Sourcing $script"
-      source "$script"
-      sleep 30
-    fi
-  done
+    for script in "$dir"/*.sh; do  # Only source .sh files
+        if [[ -f "$script" ]]; then
+            echo "Sourcing $script"
+            source "$script"
+        fi
+    done
 done
 
 validate_block_device() {
