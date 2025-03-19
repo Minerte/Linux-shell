@@ -32,7 +32,7 @@ Encryption_swap() {
 
   echo "Now we can encrypt the disk with the keyfile"
   cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${root_disk}1" --key-file=/tmp/swap-keyfile
-  cryptsetup luksFormat --typr luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${root_disk}2" --key-file=/tmp/root-keyfile
+  cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 "${root_disk}2" --key-file=/tmp/root-keyfile
   echo "Disk is now Formated with luks and keyfile"
 
   echo "Opening the partitions"
