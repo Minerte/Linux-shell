@@ -33,7 +33,7 @@ Disk_prep() {
   local root_disk="$1"
   local boot_disk="$2"
   sleep 3
-  read -rp "You are about to format the selected disk: $boot_disk and $root_disk (y/n)" confirm
+  read -rp "You are about to format the selected disk: $boot_disk and $root_disk (y/n): " confirm
   if [[ "$confirm" != "y" ]]; then
     echo "Abort the script."
     exit 1
@@ -72,7 +72,7 @@ Disk_prep() {
   echo "-------------------------------------------------------------------------"
   echo "Now we will start to partition the root drive: $root_disk"
   echo "If user choose swap it will be (100% root) - swap_size"
-  read -rp "Do you want a swap? (y/n):" choice 
+  read -rp "Do you want a swap? (y/n): " choice 
   if [[ "$choice" =~ ^[Nn] ]]; then
     echo "No Swap"
     parted --script "$root_disk"\
@@ -111,26 +111,30 @@ Disk_prep() {
     echo "Root with swap are now done"
   fi
   echo "Disk prep are now done"
+  sleep 3
 }
 
 Prep_root() {
 
   mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
+  sleep 3
   mkdir /mnt/root
+  sleep 3
   mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root
+  sleep 3
 
   echo "Creation of subvolumes"
   for sub in activeroot home etc var log tmp; do 
     btrfs subvolume create /mnt/root/$sub  || { echo "Failed to create subvolume $sub"; exit 1; }
   done
-
+  sleep 3
   echo "Mounting subvolumes to /mnt/gentoo"
   mount -t btrfs -o defaults,noatime,compress=zstd,subvol=activeroot /dev/mapper/cryptroot /mnt/gentoo/
   mkdir /mnt/gentoo/{home,etc,var,log,tmp}
   for sub in home etc var log tmp; do
         mount -t btrfs -o defaults,noatime,compress=zstd,subvol=$sub /dev/mapper/cryptroot /mnt/gentoo/$sub   || { echo "Failed to mount subvolume $sub"; exit 1; }
   done
-
+  sleep 3
   lsblk 
   read -rp "Does the disk layout look correct? (y/n): " confirm
   if [[ "$confirm" =~ ^[Nn] ]]; then
@@ -138,6 +142,7 @@ Prep_root() {
     exit 1 
   fi 
   echo "Disk configuration done"
+  sleep 3
 }
 
 Stage_file() {
