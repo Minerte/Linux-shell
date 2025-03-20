@@ -1,16 +1,6 @@
 #!/bin/bash
 
 system-emptytree() {
-        
-  echo "Adding flag to make.conf"
-  CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
-  if grep -q "^CPU_FLAGS_X86=" /etc/portage/make.conf; then
-    sed -i "s/^CPU_FLAGS_X86=.*/CPU_FLAGS_X86=\"${CPU_FLAGS}\"/" /etc/portage/make.conf  || { echo "could not add CPU_FLAGS_X86= and cpuflags to make.conf"; exit 1; }
-    echo "cpuid2cpuflags added succesfully to make.conf"
-  else
-    echo "CPU_FLAGS_X86=\"${CPU_FLAGS}\"" >> /etc/portage/make.conf || { echo "could not add cpuflags to make.conf"; exit 1; }
-  fi
-
   echo "re-compiling existing package"
   sleep 3
   while true; do
