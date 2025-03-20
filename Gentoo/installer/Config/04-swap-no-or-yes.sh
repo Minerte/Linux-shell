@@ -24,7 +24,7 @@ swap-no-or-yes() {
       echo "The cryptswap entry already exists in $FSTAB_FILE. No changes needed."
       else
         echo "Adding cryptswap entry to $FSTAB_FILE..."
-        echo "$CRYPTSWAP_ENTRY" | tee -a "$FSTAB_FILE" > /dev/null
+        echo "$CRYPTSWAP_ENTRY" | tee -a "$FSTAB_FILE" > /dev/null || { echo "Failed to add swap to fstab"; exit 1;}
         echo "Cryptswap entry added successfully."
       fi
   fi

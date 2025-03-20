@@ -3,9 +3,6 @@
 First() {
   local boot_disk="$1"
 
-  source /etc/profile
-  export PS1="(chroot) ${PS1}"
-
   if [[ ! -d "/efi" ]]; then
     echo "Making efi directory"
     mkdir /efi
@@ -19,7 +16,7 @@ First() {
     exit 1
   fi
 
-  mkdir /efi/EFI/Gentoo || { echo "Could not create /EFI/Gentoo in /efi directory"; exit 1; }
+  mkdir -p /efi/EFI/Gentoo || { echo "Could not create /EFI/Gentoo in /efi directory"; exit 1; }
   lsblk
   ls -a /efi
   read -rp "is ${boot_disk}1 mounted to /efi. And do you have /efi/EFI/Gentoo (y/n): " user_input

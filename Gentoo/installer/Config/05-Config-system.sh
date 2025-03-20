@@ -1,6 +1,6 @@
 #!/bin/bash
 
-config_system () {
+config_system() {
   echo "we will be using EOF to configure fstab"
   echo "All this coming from first function where we created disk and subvolome"
   cat << EOF > /mnt/gentoo/etc/fstab || { echo "Failed to edit fstab with EOF"; exit 1; }
@@ -36,7 +36,7 @@ EOF
   echo "Succesfully edited basic system"
 }
 
-config_portage () {
+config_portage() {
   echo "we will now configure system"
   # Copy custom portage configuration files
   echo "Moving over portge file from download to chroot"

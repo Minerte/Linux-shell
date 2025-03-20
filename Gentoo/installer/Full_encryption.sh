@@ -191,7 +191,7 @@ chroot_ready() {
 
   echo "Coping over chroot.sh into chroot"
   cp -r /root/Linux-shell-main/Gentoo/installer/Chroot/* /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
-  chmod +x /mnt/gentoo/Chroot/Encryption-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
+  chmod +x /mnt/gentoo/Encryption-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
   echo "everything is mounted and ready to chroot"
   echo "After the chroot is done it will be in another bash session"
   echo "chroot with this comand!"

@@ -6,6 +6,9 @@ if [ "$(id -u)" != "0" ]; then
   exit 1
 fi 
 
+source /etc/profile
+export PS1="(chroot) ${PS1}"
+
 source ~/Chroot-sync/chroot-first.sh
 source ~/Chroot-sync/Openrc-runtime.sh
 source ~/emerge/recompile.sh
@@ -32,8 +35,10 @@ validate_block_device() {
 Step_1() {
   local boot_disk="$1"
 
-  First "$boot_disk"
+  first "$boot_disk"
   cpu_to_flags
+  system-emptytree
+  system-packages
   openrc_runtime
   config_for_session
 }
@@ -41,6 +46,7 @@ Step_1() {
 Step_2() {
   local root_disk="$1"
   local boot_disk="$2"
+  Kernel
   dracut_update_and_EFIstub "$root_disk" "$boot_disk"
 }
 
@@ -56,7 +62,4 @@ while true; do
 done
 
 Step_1 "$selected_boot_disk"
-system-emptytree
-system-packages
-kernel_compile
 Step_2 "$selected_root_disk" "$selected_boot_disk"
