@@ -49,5 +49,6 @@ config_portage() {
   mv ~/Linux-shell-main/Gentoo/portage/package.use/* /mnt/gentoo/etc/portage/package.use/
   mv ~root/Linux-shell-main/Gentoo/portage/package.accept_keywords/* /mnt/gentoo/etc/portage/package.accept_keywords/
   echo "copinging over package.accept_keywords successully"
+  mv ~/Linux-shell-main/Gentoo/portage/.config /mnt/gentoo/tmp/
   echo "Portage configuration complete."
 }

@@ -56,6 +56,10 @@ openrc_runtime () {
     fi
     echo "hostname-mode=$HOSTNAME_MODE" >> "$NM_MAIN_CONFIG"
 
+    sleep 3
+    ping -c 3 gentoo.org
+    sleep 3
+
     rc-service NetworkManager restart
     echo "-------------------------------------------"
     echo "New hostname set to: $CUSTOM_HOSTNAME"

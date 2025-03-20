@@ -1,8 +1,6 @@
 #!/bin/bash
 
 system-emptytree() {
-  echo "cpuid2cpuflags"
-  emerge --oneshot app-portage/cpuid2cpuflags
         
   echo "Adding flag to make.conf"
   CPU_FLAGS=$(cpuid2cpuflags | cut -d' ' -f2-)
@@ -54,11 +52,11 @@ system-packages() {
   sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
 
   while true; do
-    emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware \
-      sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils \
-      sys-process/cronie net-misc/chrony net-misc/networkmanager app-admin/sysklogd app-shells/bash-completion \
-      dev-vcs/git sys-apps/mlocate sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware \
-      app-editors/neovim app-arch/unzip
+    emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware sys-kernel/dracut \
+      sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils sys-process/cronie \
+      sys-block/io-scheduler-udev-rules sys-boot/efibootmgr sys-firmware/sof-firmware sys-apps/mlocate \
+      app-editors/neovim app-arch/unzip app-crypt/gnupg app-admin/sysklogd app-shells/bash-completion \
+      net-misc/chrony net-misc/networkmanager dev-vcs/git
 
     if [[ $? -eq 0 ]]; then
       echo "Core packages installed successfully!"

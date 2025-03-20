@@ -9,11 +9,11 @@ fi
 source /etc/profile
 export PS1="(chroot) ${PS1}"
 
-source ~/Chroot-sync/chroot-first.sh
-source ~/Chroot-sync/Openrc-runtime.sh
-source ~/emerge/recompile.sh
-source ~/kernel/kernel-compile.sh
-source ~/kernel/Finish.sh
+source /Chroot-sync/chroot-first.sh
+source /Chroot-sync/Openrc-runtime.sh
+source /emerge/recompile.sh
+source /kernel/kernel-compile.sh
+source /kernel/Finish.sh
 
 validate_block_device() {
   local boot_disk="$1"
@@ -35,7 +35,7 @@ validate_block_device() {
 Step_1() {
   local boot_disk="$1"
 
-  first "$boot_disk"
+  First "$boot_disk"
   cpu_to_flags
   system-emptytree
   system-packages
