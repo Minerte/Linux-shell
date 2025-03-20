@@ -6,11 +6,11 @@ if [ "$(id -u)" != "0" ]; then
   exit 1
 fi 
 
-source ~/Linux-shell-main/Gentoo/installer/Disk/01-Encryption.sh
-source ~/Linux-shell-main/Gentoo/installer/Config/04-swap-no-or-yes.sh
-source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh
-source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh
-source ~/Linux-shell-main/Gentoo/installer/Config/05-Config-system.sh
+source ~/Linux-shell-main/Gentoo/installer/Disk/01-Encryption.sh || { echo "Failed to source Disk"; exit 1;}
+source ~/Linux-shell-main/Gentoo/installer/Config/04-swap-no-or-yes.sh || { echo "Failed to source config"; exit 1;}
+source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/02-Stage3-download.sh || { echo "Failed to source stage -02"; exit 1;}
+source ~/Linux-shell-main/Gentoo/installer/Stage_and_verify/03-gpg-verify.sh || { echo "Failed to source stage -03"; exit 1;}
+source ~/Linux-shell-main/Gentoo/installer/Config/05-Config-system.sh || { echo "Failed to source config -05"; exit 1;}
 
 validate_block_device() {
     local boot_disk="$1"
@@ -57,16 +57,6 @@ Disk_prep() {
   mount "${boot_disk}2" /media/keydrive
   echo "Boot is now mounted"
   sleep 3 
-
-  # 
-  #
-  #
-  # Need to fix that the function from another directory dont execute
-  # The sourcing is now working properly
-  #
-  #
-  #
-
   echo "Boot disk is now done"
   sleep 3
   echo "-------------------------------------------------------------------------"
@@ -174,13 +164,12 @@ Stage_file() {
 }
 
 System_config() {
-  config-system
+  sleep 3
+  config_system
   swap-no-or-yes # to edit the fstab if swap is enable
-  echo "Copying over .config for kernel to chroot directory"
-  # Need to do before kernel compile in chroot
-  # mv /mnt/gentoo/usr/src/linux/.config /mnt/gentoo/usr/src/linux/.config.bak
-  # cp ~/Linux-shell-main/Gentoo/portage/.config /mnt/gentoo/tmp/.config
+  config_portage
   echo "config done"
+  sleep 3
 }
 
 chroot_ready() {
@@ -201,7 +190,7 @@ chroot_ready() {
   sleep 5
 
   echo "Coping over chroot.sh into chroot"
-  cp /root/Linux-shell-main/Gentoo/installer/Chroot/* /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
+  cp -r /root/Linux-shell-main/Gentoo/installer/Chroot/* /mnt/gentoo/ || { echo "Failed to copy over chroot"; exit 1; }
   chmod +x /mnt/gentoo/Chroot/Encryption-in-chroot.sh || { echo "Failed to make chroot.sh executable"; exit 1; }
   echo "everything is mounted and ready to chroot"
   echo "After the chroot is done it will be in another bash session"
