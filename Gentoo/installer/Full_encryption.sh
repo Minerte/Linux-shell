@@ -106,6 +106,10 @@ Disk_prep() {
 
 Prep_root() {
 
+  echo "Making swap and swapon"
+  mkswap /dev/mapper/cryptswap || { echo "Failed to make swap"; exit 1; }
+  swapon /dev/mapper/cryptswap || { echo "No swap on"; exit 1; }
+
   mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
   sleep 3
   mkdir /mnt/root
