@@ -9,7 +9,7 @@ openrc_runtime () {
 
     echo "default level"
     rc-update add dbus default || { echo "rc-update add dbus default failed"; exit 1; }
-    rc-update add seatd default || { echo "rc-updtae add seatd default failed"; exit 1; }
+    rc-update add seatd default || { echo "rc-updte add seatd default failed"; exit 1; }
     rc-update add cronie default || { echo "rc-update add cronie default failed"; exit 1; }
     rc-update add chronyd default || { echo "rc-update add chronyd default failed"; exit 1; }
     rc-update add sysklogd default || { echo "rc-update add sysklogd default failed"; exit 1; }
@@ -17,7 +17,6 @@ openrc_runtime () {
     sleep 3
 
     echo "Editing for Networkmanager"
-    rc-service NetworkManager start
     echo "Wating 5s to make sure"
     sleep 5
 
@@ -52,15 +51,11 @@ openrc_runtime () {
 
     # Add the new hostname-mode setting
     if ! grep -q "^\[main\]" "$NM_MAIN_CONFIG"; then
-        echo -e "\n[main]" >> "$NM_MAIN_CONFIG"
+      sed -i '1s/^/[main]\n/' "$NM_MAIN_CONFIG"
     fi
+
     echo "hostname-mode=$HOSTNAME_MODE" >> "$NM_MAIN_CONFIG"
 
-    sleep 3
-    ping -c 3 gentoo.org
-    sleep 3
-
-    rc-service NetworkManager restart
     echo "-------------------------------------------"
     echo "New hostname set to: $CUSTOM_HOSTNAME"
     echo "Hostname mode set to: $HOSTNAME_MODE"

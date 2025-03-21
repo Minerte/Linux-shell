@@ -11,7 +11,7 @@ dracut_update_and_EFIstub() {
   # List available kernel versions
   while true; do
     echo "Listing available kernel versions in /usr/src/:"
-    kernels=($(ls -d /usr/src/linux-*-gentoo-*-/ 2>/dev/null))
+    kernels=($(ls -d /usr/src/linux-*-gentoo 2>/dev/null))
     if [ ${#kernels[@]} -eq 0 ]; then
       echo "No kernel version found in directory /usr/src/"
       continue
@@ -37,6 +37,7 @@ dracut_update_and_EFIstub() {
   swapuuid=$(blkid "${root_disk}1" -o value -s UUID)
   rootuuid=$(blkid "${root_disk}2" -o value -s UUID)
   boot_key_partuuid=$(blkid "${boot_disk}2" -o value -s PARTUUID)
+  kernel_cmdline="" # Initialize if unset
 
   if [[ -z "$swapuuid" || -z "$rootuuid" || -z "$boot_key_partuuid" ]]; then
     echo "Error: Missing one or more UUIDs. Ensure disks are properly configured."
@@ -74,11 +75,11 @@ dracut_update_and_EFIstub() {
 
 # Mount the USB keystorage partition
 mkdir -p /media/keydrive
-mount /keydisk-PART-UUID /media/keydrive || { echo "Failed to mount USB keystorage partition"; exit 1; }
+mount "/dev/disk/by-partuuid/Key-partuuid-please-change-me" /media/keydrive || { echo "Failed to mount USB keystorage partition"; exit 1; }
 
 # Decrypt the GPG-encrypted keyfile
-gpg --decrypt --batch --passphrase 123456789 --output /tmp/swap-keyfile /media/keydrive/swap-keyfile.gpg || { echo "Failed to decrypt keyfile"; exit 1; }
-gpg --decrypt --batch --passphrase 123456789 --output /tmp/root-keyfile /media/keydrive/root-keydile.gpg || { echo "Failed to decrypt keyfile"; exit 1; }
+gpg --decrypt --batch --passphrase change-me --output /tmp/swap-keyfile /media/keydrive/swap-keyfile.gpg || { echo "Failed to decrypt keyfile"; exit 1; }
+gpg --decrypt --batch --passphrase change-me --output /tmp/root-keyfile /media/keydrive/root-keyfile.gpg || { echo "Failed to decrypt keyfile"; exit 1; }
 
 # Unlock the LUKS-encrypted root partition
 cryptsetup open --key-file=/tmp/swap-keyfile /dev/sdX cryptswap || { echo "Failed to unlock swap partition"; exit 1; }
@@ -111,16 +112,28 @@ EOF
   chmod +x /usr/lib/dracut/modules.d/90gpgdecrypt/module-setup.sh
 
   # Update /etc/dracut.conf
-  if ! grep -q "^add_dracutmodules+=\" 90gpgdecrypt crypt crypt-gpg dm rootfs-block \"" /etc/dracut.conf; then
-      echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block "' >> /etc/dracut.conf
+  if grep -q '^add_dracutmodules' /etc/dracut.conf; then
+    if ! grep -qw '90gpgdecrypt' /etc/dracut.conf; then
+      sed -i '/^add_dracutmodules/ s|$| 90gpgdecrypt crypt crypt-gpg dm rootfs-block |' /etc/dracut.conf
+    fi
+  else
+    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block "' >> /etc/dracut.conf
   fi
 
-  if ! grep -q "^install_items+=\" /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred \"" /etc/dracut.conf; then
-      echo 'install_items+=" /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred "' >> /etc/dracut.conf
+  if grep -q '^install_items' /etc/dracut.conf; then
+    if ! grep -qw '/usr/bin/blkid' /etc/dracut.conf; then
+      sed -i '/^install_items/ s|$| /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred |' /etc/dracut.conf
+    fi
+  else
+    echo 'install_items+=" /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred "' >> /etc/dracut.conf
   fi
 
-  if ! grep -q "^kernel_cmdline+=\"$kernel_cmdline\"" /etc/dracut.conf; then
-      echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
+  if grep -q '^kernel_cmdline' /etc/dracut.conf; then
+    if ! grep -Fq "$kernel_cmdline" /etc/dracut.conf; then
+      sed -i "/^kernel_cmdline/ s|$| $kernel_cmdline |" /etc/dracut.conf
+    fi
+  else
+    echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
   fi
 
   # Rebuild the initramfs
@@ -153,10 +166,15 @@ EOF
     /efi/EFI/Gentoo/gentoo.efi
 
   # Create an EFI boot entry
-  efibootmgr --create --disk "$boot_disk" --part 1 \
-  --label "Gentoo" \
-  --loader '\EFI\Gentoo\gentoo.efi' \
-  --unicode "initrd=\EFI\Gentoo\initramfs.img"
+  # Might need to  change boot_disk to part-uuid instead
+  boot_partuuid=$(blkid "${boot_disk}1" -o value -s PARTUUID)
+  efibootmgr --create --disk "/dev/disk/by-partuuid/$boot_partuuid" --part 1 \
+    --label "Gentoo" \
+    --loader '\EFI\Gentoo\gentoo.efi' \
+    --unicode "initrd=\EFI\Gentoo\initramfs.img"
 
-    echo "NOW EVERYTHING IS DONE AND WE CAN REBOOT"
+  echo "Please before exiting/reboot"
+  echo "You need to edit some files where there are change-me: "
+  echo "gpgdecrypt.gpg "
+  echo "AFTER THAT WE CAN REBOOT"
 }
