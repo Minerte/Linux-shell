@@ -79,4 +79,5 @@ Kernel() {
   genkernel --luks --btrfs --firmware --keymap --no-splash --save-config --menuconfig --install all
 
   echo 'Change back to "main" directory'
+  cd / || { echo "Failed to change / directory"; exit 1;}
 }
