@@ -37,10 +37,6 @@ system-emptytree() {
 }
 
 system-packages() {
-  emerge dev-lang/rust || { echo "Rust dont want to compile check dependency and flags"; exit 1; }
-  echo "enable system-bootstrap in /etc/portage/package.use/Rust"
-  sed -i 's/\(#\)system-bootstrap/\1/' /etc/portage/package.use/Rust
-
   while true; do
     emerge sys-kernel/gentoo-sources sys-kernel/genkernel sys-kernel/installkernel sys-kernel/linux-firmware sys-kernel/dracut \
       sys-fs/cryptsetup sys-fs/btrfs-progs sys-apps/sysvinit sys-auth/seatd sys-apps/dbus sys-apps/pciutils sys-process/cronie \

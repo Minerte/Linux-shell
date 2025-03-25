@@ -203,19 +203,19 @@ EOF
     exit 1
   fi
 
-  # Embed the kernel command line into the EFI binary
-  objcopy \
-    --add-section .cmdline=<(echo -n "$kernel_cmdline") \
-    --change-section-vma .cmdline=0x30000 \
-    /efi/EFI/Gentoo/bzImage.efi \
-    /efi/EFI/Gentoo/gentoo.efi
-
   # Create an EFI boot entry
   boot_partuuid=$(blkid "${boot_disk}1" -o value -s PARTUUID)
   efibootmgr --create --disk "/dev/disk/by-partuuid/$boot_partuuid" --part 1 \
     --label "Gentoo" \
     --loader '\EFI\Gentoo\gentoo.efi' \
-    --unicode "initrd=\EFI\Gentoo\initramfs.img"
+    --unicode "initrd=\EFI\Gentoo\initramfs.img \
+      root=LABEL=$rootlabel \
+      rootflags=subvol=activeroot \
+      rd.luks.uuid=$rootuuid rd.luks.name=$rootuuid=cryptroot \
+      rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/luks-keyfile.gpg \
+      rd.luks.allow-discards \
+      rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap \
+      rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
 
   echo "IMPORTANT: Before rebooting:"
   echo "1. Edit /media/keydrive/passphrase.txt with your GPG passphrase"

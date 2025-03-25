@@ -111,9 +111,7 @@ Prep_root() {
   swapon /dev/mapper/cryptswap || { echo "No swap on"; exit 1; }
 
   mkfs.btrfs -L BTROOT /dev/mapper/cryptroot
-  sleep 3
   mkdir /mnt/root
-  sleep 3
   mount -t btrfs -o defaults,noatime,compress=zstd /dev/mapper/cryptroot /mnt/root
   sleep 3
 
