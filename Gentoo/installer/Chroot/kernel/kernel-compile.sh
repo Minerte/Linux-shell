@@ -74,10 +74,9 @@ Kernel() {
     exit 1
   fi
 
+  echo 'Change back to "main" directory'
+  cd / || { echo "Failed to change / directory"; exit 1;}
   # Run genkernel with the selected kernel
   echo "Building kernel $kernel_version with genkernel..."
   genkernel --luks --btrfs --firmware --keymap --no-splash --save-config --menuconfig --install all
-
-  echo 'Change back to "main" directory'
-  cd / || { echo "Failed to change / directory"; exit 1;}
 }
