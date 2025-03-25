@@ -39,7 +39,6 @@ Step_1() {
   cpu_to_flags
   system-emptytree
   system-packages
-  openrc_runtime
   config_for_session
 }
 
@@ -48,6 +47,7 @@ Step_2() {
   local boot_disk="$2"
   Kernel
   dracut_update_and_EFIstub "$root_disk" "$boot_disk"
+  openrc_runtime
 }
 
 lsblk -d -n -o NAME,SIZE,UUID,LABEL | awk '{print "/dev/" $1 " - " $2}'
