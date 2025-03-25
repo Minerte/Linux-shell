@@ -123,7 +123,7 @@ check() {
 
 depends() {
     # Declare module dependencies
-    echo "crypt"
+    echo "crypt crypt-gpg"
     return 0
 }
 
@@ -147,10 +147,18 @@ EOF
   # Update /etc/dracut.conf
   if grep -q '^add_dracutmodules' /etc/dracut.conf; then
     if ! grep -qw '90gpgdecrypt' /etc/dracut.conf; then
-      sed -i '/^add_dracutmodules/ s|$| gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev |' /etc/dracut.conf
+      sed -i '/^add_dracutmodules/ s|$| 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev btrfs |' /etc/dracut.conf
     fi
   else
-    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev "' >> /etc/dracut.conf
+    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev btrfs "' >> /etc/dracut.conf
+  fi
+
+  if grep -q '^omit_dracutmodules' /etc/dracut.conf; then
+    if ! grep -qw 'systemd-initrd' /etc/dracut.conf; then
+      sed -i '/^omit_dracutmodules/ s|"| systemd systemd-initrd dracut-systemd systemd-udevd "|' /etc/dracut.conf
+    fi
+  else
+    echo 'omit_dracutmodules+=" systemd systemd-initrd dracut-systemd systemd-udevd "' >> /etc/dracut.conf
   fi
 
   if grep -q '^install_items' /etc/dracut.conf; then
@@ -169,14 +177,16 @@ EOF
     echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
   fi
 
-  echo "Allow symlinks for dracut"
   grep -q "allow_symlinks=1" /etc/dracut.conf || echo "allow_symlinks=1" >> /etc/dracut.conf
+  grep -q 'use_fstab="yes"' /etc/dracut.conf || echo 'use_fstab="yes"' >> /etc/dracut.conf
+  grep -q 'filesystems+=" btrfs "' /etc/dracut.conf || echo 'filesystems+=" btrfs "' >> /etc/dracut.conf
+  grep -q 'hostonly="yes"' /etc/dracut.conf || echo 'hostonly="yes"' >> /etc/dracut.conf
 
   # Rebuild the initramfs (without --uefi for OpenRC)
   echo "Building initramfs for kernel version: $kernel_version"
 
   # Rebuild the initramfs with explicit module path
-  dracut --kver "6.12.16-gentoo-x86_64" --add "gpgdecrypt crypt" --force
+  dracut --kver "6.12.16-gentoo-x86_64" --add "90gpgdecrypt crypt crypt-gpg" --force
 
   sleep 5
   echo "Copying kernel and initramfs to /efi/EFI/Gentoo"
