@@ -63,7 +63,7 @@ dracut_update_and_EFIstub() {
   kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/luks-keyfile.gpg"
   kernel_cmdline+=" rd.luks.allow-discards"
   kernel_cmdline+=" rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap"
-  kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
+  kernel_cmdline+=" rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg "
 
   # Create the custom dracut module
   mkdir -p /usr/lib/dracut/modules.d/90gpgdecrypt/
