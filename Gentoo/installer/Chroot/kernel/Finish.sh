@@ -147,10 +147,10 @@ EOF
   # Update /etc/dracut.conf
   if grep -q '^add_dracutmodules' /etc/dracut.conf; then
     if ! grep -qw '90gpgdecrypt' /etc/dracut.conf; then
-      sed -i '/^add_dracutmodules/ s|$| gpgdecrypt crypt crypt-gpg dm rootfs-block |' /etc/dracut.conf
+      sed -i '/^add_dracutmodules/ s|$| gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev |' /etc/dracut.conf
     fi
   else
-    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block "' >> /etc/dracut.conf
+    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev "' >> /etc/dracut.conf
   fi
 
   if grep -q '^install_items' /etc/dracut.conf; then
@@ -169,11 +169,14 @@ EOF
     echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
   fi
 
+  echo "Allow symlinks for dracut"
+  grep -q "allow_symlinks=1" /etc/dracut.conf || echo "allow_symlinks=1" >> /etc/dracut.conf
+
   # Rebuild the initramfs (without --uefi for OpenRC)
   echo "Building initramfs for kernel version: $kernel_version"
 
   # Rebuild the initramfs with explicit module path
-  dracut --force --verbose --kver "6.12.16-gentoo-x86_64"
+  dracut --kver "6.12.16-gentoo-x86_64" --add "gpgdecrypt crypt" --force
 
   sleep 5
   echo "Copying kernel and initramfs to /efi/EFI/Gentoo"
