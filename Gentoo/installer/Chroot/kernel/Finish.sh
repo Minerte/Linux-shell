@@ -145,30 +145,17 @@ EOF
   chmod +x /usr/lib/dracut/modules.d/90gpgdecrypt/module-setup.sh
 
   # Update /etc/dracut.conf
-  if grep -q '^add_dracutmodules' /etc/dracut.conf; then
-    if ! grep -qw '90gpgdecrypt' /etc/dracut.conf; then
-      sed -i '/^add_dracutmodules/ s|$| 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev btrfs |' /etc/dracut.conf
-    fi
-  else
-    echo 'add_dracutmodules+=" 90gpgdecrypt crypt crypt-gpg dm rootfs-block devfs udev btrfs "' >> /etc/dracut.conf
-  fi
-
-  if grep -q '^omit_dracutmodules' /etc/dracut.conf; then
-    if ! grep -qw 'systemd-initrd' /etc/dracut.conf; then
-      sed -i '/^omit_dracutmodules/ s|"| systemd systemd-initrd dracut-systemd systemd-udevd "|' /etc/dracut.conf
-    fi
-  else
-    echo 'omit_dracutmodules+=" systemd systemd-initrd dracut-systemd systemd-udevd "' >> /etc/dracut.conf
-  fi
-
-  if grep -q '^install_items' /etc/dracut.conf; then
-    if ! grep -qw '/usr/bin/blkid' /etc/dracut.conf; then
-      sed -i '/^install_items/ s|$| /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred /usr/bin/getarg |' /etc/dracut.conf
-    fi
-  else
-    echo 'install_items+=" /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred /usr/bin/getarg "' >> /etc/dracut.conf
-  fi
-
+  grep -q "udevdir=/lib/udev" /etc/dracut.conf || echo "udevdir=/lib/udev" >> /etc/dracut.conf
+  grep -q "ro_mnt=yes" /etc/dracut.conf || echo "ro_mnt=yes" >> /etc/dracut.conf
+  grep -q 'omit_drivers+=" i2o_scsi "' /etc/dracut.conf || echo 'omit_drivers+=" i2o_scsi "' >> /etc/dracut.conf
+  grep -q 'omit_dracutmodules+=" systemd systemd-initrd dracut-systemd systemd-udevd "' /etc/dracut.conf || echo 'omit_dracutmodules+=" systemd systemd-initrd dracut-systemd systemd-udevd "' >> /etc/dracut.conf
+  grep -q 'add_dracutmodules+=" gpgdecrypt crypt crypt-gpg dm rootfs-block btrfs "' /etc/dracut.conf || echo 'add_dracutmodules+=" crypt crypt-gpg dm rootfs-block btrfs "' >> /etc/dracut.conf
+  grep -q 'filesystems+=" btrfs "' /etc/dracut.conf || echo 'filesystems+=" btrfs "' >> /etc/dracut.conf
+  grep -q 'use_fstab="yes"' /etc/dracut.conf || echo 'use_fstab="yes"' >> /etc/dracut.conf
+  grep -q 'hostonly="yes"' /etc/dracut.conf || echo 'hostonly="yes"' >> /etc/dracut.conf
+  grep -q "allow_symlinks=1" /etc/dracut.conf || echo "allow_symlinks=1" >> /etc/dracut.conf
+  grep -q 'uefi="yes"' /etc/dracut.conf || echo 'uefi="yes"' >> /etc/dracut.conf
+  grep -q 'install_items+=" /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred /usr/bin/getarg "' /etc/dracut.conf || echo 'install_items+=" /usr/bin/blkid /usr/bin/gpg /usr/bin/cryptsetup /usr/bin/mount /usr/bin/umount /usr/bin/shred "' >> /etc/dracut.conf
   if grep -q '^kernel_cmdline' /etc/dracut.conf; then
     if ! grep -Fq "$kernel_cmdline" /etc/dracut.conf; then
       sed -i "/^kernel_cmdline/ s|$| $kernel_cmdline |" /etc/dracut.conf
@@ -176,21 +163,16 @@ EOF
   else
     echo "kernel_cmdline+=\"$kernel_cmdline\"" >> /etc/dracut.conf
   fi
-
-  grep -q "allow_symlinks=1" /etc/dracut.conf || echo "allow_symlinks=1" >> /etc/dracut.conf
-  grep -q 'use_fstab="yes"' /etc/dracut.conf || echo 'use_fstab="yes"' >> /etc/dracut.conf
-  grep -q 'filesystems+=" btrfs "' /etc/dracut.conf || echo 'filesystems+=" btrfs "' >> /etc/dracut.conf
-  grep -q 'hostonly="yes"' /etc/dracut.conf || echo 'hostonly="yes"' >> /etc/dracut.conf
-
-  # Rebuild the initramfs (without --uefi for OpenRC)
-  echo "Building initramfs for kernel version: $kernel_version"
+  grep -q 'i18n_vars="/etc/conf.d/keymaps:KEYMAP /etc/rc.conf:UNICODE"' /etc/dracut.conf || echo 'i18n_vars="/etc/conf.d/keymaps:KEYMAP /etc/rc.conf:UNICODE"' >> /etc/dracut.conf
+  grep -q 'i18n_install_all="yes"' /etc/dracut.conf || echo 'i18n_install_all="yes"' >> /etc/dracut.conf
 
   # Rebuild the initramfs with explicit module path
-  dracut --kver "6.12.16-gentoo-x86_64" --add "90gpgdecrypt crypt crypt-gpg" --force
+  echo "Building initramfs for kernel version: $kernel_version"
+  sleep 5
+  dracut --kver "$kernel_version" --add "gpgdecrypt" --force
 
   sleep 5
   echo "Copying kernel and initramfs to /efi/EFI/Gentoo"
-
   # Copy kernel (try multiple possible locations)
   kernel_found=false
   for kernel_path in "/boot/vmlinuz-$kernel_version" "/boot/bzImage-$kernel_version" "/boot/kernel-$kernel_version"; do
@@ -230,12 +212,10 @@ EOF
       rd.luks.uuid=$swapuuid rd.luks.name=$swapuuid=cryptswap \
       rd.luks.key=/dev/disk/by-partuuid/$boot_key_partuuid:/swap-keyfile.gpg"
 
-  echo "IMPORTANT: Before rebooting:"
-  echo "1. Edit /media/keydrive/passphrase.txt with your GPG passphrase"
-  echo "2. Verify keyfiles exist at:"
-  echo "   - /media/keydrive/swap-keyfile.gpg"
-  echo "   - /media/keydrive/root-keyfile.gpg"
-  echo "3. Test decryption manually with:"
-  echo "   chroot /mnt /usr/lib/dracut/modules.d/90gpgdecrypt/gpgdecrypt.sh"
-  echo "After verification, you can reboot."
+  efibootmgr -v
+  read -rp "Does the efibootmgr look right? (y/n): " user_input
+  if [[ "$user_input" =~ ^[Nn] ]]; then
+    echo "Boot entry does not look right. Please fix the issue and try again."
+    exit 1
+  fi
 }

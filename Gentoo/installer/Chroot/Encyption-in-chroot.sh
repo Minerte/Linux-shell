@@ -39,7 +39,6 @@ Step_1() {
   cpu_to_flags
   system-emptytree
   system-packages
-  config_for_session
 }
 
 Step_2() {
@@ -47,7 +46,12 @@ Step_2() {
   local boot_disk="$2"
   Kernel
   dracut_update_and_EFIstub "$root_disk" "$boot_disk"
+}
+
+Step_3() {
+  echo "Config for session"
   openrc_runtime
+  config_for_session
 }
 
 lsblk -d -n -o NAME,SIZE,UUID,LABEL | awk '{print "/dev/" $1 " - " $2}'
@@ -63,3 +67,13 @@ done
 
 Step_1 "$selected_boot_disk"
 Step_2 "$selected_root_disk" "$selected_boot_disk"
+Step_3
+
+echo "IMPORTANT: Before rebooting:"
+echo "1. Edit /media/keydrive/passphrase.txt with your GPG passphrase"
+echo "2. Verify keyfiles exist at:"
+echo "   - /media/keydrive/swap-keyfile.gpg"
+echo "   - /media/keydrive/root-keyfile.gpg"
+echo "3. Test decryption manually with:"
+echo "   chroot /mnt /usr/lib/dracut/modules.d/90gpgdecrypt/gpgdecrypt.sh"
+echo "After verification, you can reboot."

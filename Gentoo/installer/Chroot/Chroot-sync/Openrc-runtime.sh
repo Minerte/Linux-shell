@@ -14,7 +14,6 @@ openrc_runtime () {
     rc-update add chronyd default || { echo "rc-update add chronyd default failed"; exit 1; }
     rc-update add sysklogd default || { echo "rc-update add sysklogd default failed"; exit 1; }
     rc-update add NetworkManager default || { echo "rc-update add NetworkManager default failed"; exit 1; }
-    rc-update add kernel-bootcfg-boot-successful default || { echo "rc-update add kernel-bootcfg-boot-successful default failed"; exit 1; }
     sleep 3
 
     echo "Editing for Networkmanager"
