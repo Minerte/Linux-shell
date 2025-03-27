@@ -78,5 +78,5 @@ Kernel() {
   cd / || { echo "Failed to change / directory"; exit 1;}
   # Run genkernel with the selected kernel
   echo "Building kernel $kernel_version with genkernel..."
-  genkernel --luks --btrfs --firmware --keymap --no-splash --save-config --menuconfig --install all
+  genkernel --oldconfig --luks --btrfs --firmware --keymap --no-splash --save-config --menuconfig --install all
 }
