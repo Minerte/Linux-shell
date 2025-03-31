@@ -57,21 +57,15 @@ Kernel() {
   # Navigate to the kernel source directory
   cd "$kernel_dir" || { echo "Error: Failed to enter kernel directory."; exit 1; }
 
-  # Run `make oldconfig` to merge old and new configurations
-  echo "Merging old and new kernel configurations..."
+  # Check if an existing config file is present
   if [[ -f .config ]]; then
-    make oldconfig
+    echo "Merging old and new kernel configurations..."
+    mv /tmp/.config .config.new
+    make oldconfig KCONFIG_CONFIG=.config.new  # Merge new config with existing one
+    mv .config.new .config  # Replace old config with merged one
   else
-    echo "Warning: No existing .config file found in $kernel_dir. A new one will be created."
-  fi
-
-  # Move the new .config file from /tmp/.config to the kernel source directory
-  if [[ -f /tmp/.config ]]; then
+    echo "Warning: No existing .config file found in $kernel_dir. Using the new one."
     mv /tmp/.config "$kernel_dir/.config"
-    echo "Moved /tmp/.config to $kernel_dir/.config"
-  else
-    echo "Error: /tmp/.config not found. Please ensure the file exists."
-    exit 1
   fi
 
   echo 'Change back to "main" directory'
