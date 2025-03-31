@@ -174,27 +174,27 @@ EOF
   sleep 5
   echo "Copying kernel and initramfs to /efi/EFI/Gentoo"
   # Copy kernel (try multiple possible locations)
-  kernel_found=false
-  for kernel_path in "/boot/vmlinuz-$kernel_version" "/boot/bzImage-$kernel_version" "/boot/kernel-$kernel_version"; do
-    if [ -f "$kernel_path" ]; then
-      cp "$kernel_path" /efi/EFI/Gentoo/bzImage.efi
-      echo "Successfully copied kernel from $kernel_path"
-      kernel_found=true
-      break
-    fi
-  done
-
-  if [ "$kernel_found" = false ]; then
-    echo "ERROR: Could not find kernel image in /boot/"
-    exit 1
-  fi
-
-  # Copy initramfs
-  if [ -f "/boot/initramfs-$kernel_version.img" ]; then
-    cp "/boot/initramfs-$kernel_version.img" /efi/EFI/Gentoo/initramfs.img
-    echo "Successfully copied initramfs to /efi/EFI/Gentoo/initramfs.img"
+  echo "Copying /boot/kernel-* and /boot/initramfs to /efi/EFI/Gentoo"
+  if cp /boot/kernel-* /efi/EFI/Gentoo/bzImage.efi; then
+    echo "Successfully copied kernel-* to /efi/EFI/Gentoo/bzImage.efi"
   else
-    echo "ERROR: Could not find initramfs in /boot/"
+    echo "Failed to copy kernel-*, trying vmlinuz-* or bzImage-*..."
+    if cp /boot/vmlinuz-* /efi/EFI/Gentoo/bzImage.efi; then
+        echo "Successfully copied vmlinuz-* to /efi/EFI/Gentoo/bzImage.efi"
+    else
+        if cp /boot/bzImage-* /efi/EFI/Gentoo/bzImage.efi; then
+          echo "Successfully copied bzImage-* to /efi/EFI/Gentoo/bzImage.efi"
+        else
+          echo "Failed to copy kernel (kernel-*, vmlinuz-*, or bzImage-*) to /efi/EFI/Gentoo/bzImage.efi"
+          exit 1
+        fi
+      fi
+    fi
+
+  if cp "$(ls -1t /boot/initramfs-* | head -n 1)" /efi/EFI/Gentoo/initramfs.img; then
+    echo "Successfully copied the latest initramfs to /efi/EFI/Gentoo/initramfs.img"
+  else
+    echo "Failed to copy initramfs to /efi/EFI/Gentoo/initramfs.img"
     exit 1
   fi
 
