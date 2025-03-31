@@ -60,12 +60,12 @@ Kernel() {
   # Check if an existing config file is present
   if [[ -f .config ]]; then
     echo "Merging old and new kernel configurations..."
-    mv /tmp/.config .config.new
-    make oldconfig KCONFIG_CONFIG=.config.new  # Merge new config with existing one
-    mv .config.new .config  # Replace old config with merged one
+    cp .config .config.old  # Backup old config
+    cat /tmp/.config >> .config  # Append new settings to old config (not ideal)
+    make oldconfig  # Properly merge changes
   else
     echo "Warning: No existing .config file found in $kernel_dir. Using the new one."
-    mv /tmp/.config "$kernel_dir/.config"
+    mv /tmp/.config .config
   fi
 
   echo 'Change back to "main" directory'
