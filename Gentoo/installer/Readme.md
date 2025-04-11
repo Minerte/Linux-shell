@@ -8,7 +8,7 @@ The disk will look something like this when we done partitioning.
 └── /dev/sda2      [BOOTX] /boot     1 GB         ext4        Bootloader support files, kernel and initramfs
 
 /dev/nvme0n1 # root drive
- ├── /dev/nvmeon1p1
+ ├── /dev/nvme0n1p1
  |    └──  /dev/mapper/cryptswap  SWAP      ->END        SWAP
  └── /dev/nvme0n1p2 [ROOT]  (root)          ->END        luks        Encrypted root device, mapped to the name 'root'
       └──  /dev/mapper/cryptroot  /         ->END        btrfs       root filesystem
