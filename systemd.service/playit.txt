@@ -1,0 +1,14 @@
+[Unit]
+Description=Playit.gg Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/home/test-script/.local/bin/playit-linux-amd64
+WorkingDirectory=/home/test-script/
+Restart=always
+RestartSec=5
+User=test-script
+
+[Install]
+WantedBy=multi-user.target
