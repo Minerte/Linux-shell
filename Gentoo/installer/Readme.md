@@ -107,7 +107,6 @@ mount -t btrfs -o defaults,noatime,compress=lzo,subvol=log /dev/mapper/cryptroot
 mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /dev/mapper/cryptroot /mnt/gentoo/tmp
 ```
 
-
 # Now we will edit in chroot
 ```
 /dev/sda
@@ -125,7 +124,7 @@ mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /
                                   /tmp      subvolume
 ```
 
-We are gone use ugrd. An set up example!
+We are gone use ugrd. An set up example! \
 /etc/ugrd/config.toml
 ```
 modules = [
@@ -179,3 +178,11 @@ efibootmgr --create --disk BOOTDISK --part 1 \
     --loader "\EFI\Gentoo\bzImage.efi" \
     --unicode "initrd=\EFI\Gentoo\initramfs.img \
 ```
+
+!!! Potential issues !!!
+If gpg-keyfile mount to /tmp it might not be able to execute the decrypt because of fstab rules "defaults,noatime,nosuid,***noexec***,nodev,compress=lzo,subvol=tmp"
+
+Other sources:
+[Kernel/Command-line parameters](https://wiki.gentoo.org/wiki/Kernel/Command-line_parameters)
+[EFI stub](https://wiki.gentoo.org/wiki/EFI_stub)
+[GnuPG](https://wiki.gentoo.org/wiki/GnuPG)
