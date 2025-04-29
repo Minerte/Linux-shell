@@ -1,7 +1,7 @@
 # This is a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
 
-The disk will look something like this when we done partitioning.
+The disk visiual
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -18,76 +18,57 @@ The disk will look something like this when we done partitioning.
                                   /log      subvolume
                                   /tmp      subvolume
 ```
-### Preparing the "boot drive" to be mounted and generate keyfile
-After disk preparation we need to create filesystem for /dev/sda1 and /dev/sda2 (our boot drive).
+### Preparing the boot drive
+We need to create filesystem for /dev/sda1 and /dev/sda2 (our boot drive).
 ```
-mkfs.vfat -F 32 /dev/sda1
-mkfs.ext4 /dev/sda2
+mkfs.vfat -F 32 /dev/sda1 # Boot
+mkfs.ext4 /dev/sda2 # Key-file storage
+### **Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
 ```
-**Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
 
-After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2 so we need to create a mount point in /media/.
+After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2 so we can generate Keyfile to partition
 ```
 mkdir /media/sda2
 mount /dev/sda2 /media/sda2
 ```
-
-Now we need to change directory to /media/sda2 to generate the file and encrypt the root disk, I do it this way for its easier for me. You could do it in the root Live-cd but then you need to change of=/path/to/file.
-```
-cd /media/sda2
-```
-
 ### Key generation for SWAP partition
-Here we generate a keyfile, the keyfile of swap should be **16MB**
+Here we generate a keyfile, the keyfile of swap should be **8MB**
 ```
-dd if=/dev/urandom of=swap-keyfile bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
+dd if=/dev/urandom of=/media/sda2/swap-keyfile bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
 ```
-
-We need to decrypt the gpg file so we can encrypt the swap partition using the keyfil.
+### Key generation for GPG symmetric keyfile for Root drive
+First we need to generate the key and the generation of the keyfile, so the keyfile size should be **8MB** with the command
 ```
+dd if=/dev/urandom of=/media/sda2/luks-keyfil bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
+gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
+```
+
+### Cryptsetup for swap and root
+We need to decrypt the gpg file so we can encrypt the partition using the keyfil.
+```
+# swap
 gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
 cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[swap_partition] --key-file=/tmp/swap-keyfile 
+# Root
+gpg --decrypt --output /tmp/luks-keyfile luks-keyfile.gpg
+cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[root_pratition] --key-file=/tmp/luks-keyfile
 ```
 
 Now we can open the disk for modification.
 ```
 cryptsetup open /dev/[swap_partition] cryptswap --key-file=/tmp/swap-keyfile
-```
-And then you might want to securely remove the **swap-keyfile** with the command:
-#### Caution do not delete the swap-keyfile in /media/sda2!
-```
-shred -u /tmp/swap-keyfile
-```
-
-### Key generation for GPG symmetric keyfile for Root drive
-First we need to generate the key and the generation of the keyfile, so the keyfile size should be **32MB** with the command
-```
-dd if=/dev/urandom of=luks-keyfil bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
-gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
-```
-
-We need to decrypt the key that we just created. So we can format the disk with **cryptsetup**
-```
-gpg --decrypt --output /tmp/luks-keyfile luks-keyfile.gpg
-cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[root_pratition] --key-file=/tmp/luks-keyfile
-```
-
-After that we can open the drive with **cryptsetyp** and in this case we have now "rename" the /dev/[root_pratition] to **cryptroot**
-```
 cryptsetup open /dev/[root_partition] cryptroot --key-file=/tmp/luks-keyfile
 ```
 
-After you have finished with the encryption process you can remove the key file in **/tmp/luks-keyfile**, to securely delete it use:
-#### Caution do not delete the luks-keyfile in /media/sda2!
+And then you might want to securely remove the **swap-keyfile/luks-keyfile** with the command:
+#### Caution do not delete the swap-keyfile/luks-keyfile in /media/sda2!
 ```
+shred -u /tmp/swap-keyfile
 shred -u /tmp/luks-keyfile
 ```
 
-And now you can Change directory back to Livecd root with "cd" and now you should be able to mount all the necessary file system for the root_main_drive
-
 ### Now we can start to format the partition for usage
-
 ##### For swap:
 ```
 mkswap /dev/mapper/cryptswap
@@ -126,39 +107,75 @@ mount -t btrfs -o defaults,noatime,compress=lzo,subvol=log /dev/mapper/cryptroot
 mount -t btrfs -o defaults,noatime,nosuid,noexec,nodev,compress=lzo,subvol=tmp /dev/mapper/cryptroot /mnt/gentoo/tmp
 ```
 
+
 # Now we will edit in chroot
-
-### If using hardened/selinux stage 3 file, You need to compile the kernel before doing.
-```
-emerge --ask --verbose --update --deep --changed-use @world
-or
-emerge --emptytree -a -1 @installed
-```
-
-This should be done before the kernel compile.
-example picture of disk config to change for dracut.conf
 ```
 /dev/sda
- ├──sda1     BDF2-0139
+ ├──sda1     BDF2-0139 # BIOS/EFI
  └──sda2     0e86bef-30f8-4e3b-ae35-3fa2c6ae705b # UUID=BOOT_KEY_PARTITION_UUID
 /dev/nvme0n1 # root drive
  ├── /dev/nvmeon1p1 cb070f9e-da0e-4bc5-825c-b01bb2707704
  |    └──  /dev/mapper/cryptswap  Swap      
  └── /dev/nvme0n1p2 4bb45bd6-9ed9-44b3-b547-b411079f043b
       └──  /dev/mapper/cryptroot  /
-```
-we need to add configurations to dracut in /etc/dracut.conf, and remember to change DRIVE_LABEL to the correct LABEL that you use for btrfs creation
-```
-add_dracutmodules+=" crypt crypt-gpg dm rootfs-block " # This is for GPG key config
-kernel_cmdline+=" root=LABEL=DRIVE_LABEL rd.luks.uuid=PARTITION_FOR_ROOT rd.luks.key=/crypt_key.luks.gpg:UUID=BOOT_KEY_PARTITION_UUID rd.luks.uuid=PARTITION_FOR_SWAP rd.luks.key=/crypt_key.luks.gpg:UUID=BOOT_KEY_PARTITION_UUID "
+                                  /home     subvolume
+                                  /etc      subvolume
+                                  /var      subvolume
+                                  /log      subvolume
+                                  /tmp      subvolume
 ```
 
-You should do it when you gone build the kernel.
-**Embedding a directory**
-With the _initramfs_ unpacked in /usr/src/initramfs, the kernel can be configured to embed it:
+We are gone use ugrd. An set up example!
+/etc/ugrd/config.toml
 ```
-General Setup --->
-[*] Initial RAM filesystem and RAM disk (initramfs/initrd) support
-    (/usr/src/initramfs) Initramfs source file(s)
-[*]   Support initial ramdisk/ramfs compressed using gzip
+modules = [
+  "ugrd.kmod.usb",
+  "ugrd.crypto.gpg"
+]
+
+auto_mounts = [
+    '/boot',
+    '/mnt/<mount_dir>'
+]
+
+[[mounts]]
+device = "/dev/disk/by-uuid/<usb-uuid>"
+mountpoint = "/mnt/<mount_dir>"
+filesystem = "vfat"  # or ext4, depending on your USB drive format
+options = "ro"
+
+[cryptsetup.root]
+#uuid = "4bb45bd6-9ed9-44b3-b547-b411079f043b"  # should be autodetected
+key_type = "gpg"
+key_file = "/mnt/<mount_dir>/luks-keyfile.gpg"
+```
+
+When editing kernel user need to add kernel_cmdline or we can add --unicode for efibootmgr
+#### AMD64 kernel "example"
+*** change anyother kernel modules to have support to what you need to do ***
+```
+Processor type and features  --->
+    [*] Built-in kernel command line
+    (cryptdevice=UUID=<luks-uuid>:cryptroot root=/dev/mapper/cryptroot gpgkey=/dev/disk/by-uuid/<usb-uuid>:crypto_key.gpg cryptkey=rootfs:/crypto_key) Built-in kernel command string
+```
+#### EFIBOOTMGR "example" without the built-in kernel command line
+```
+efibootmgr --create --disk BOOTDISK --part 1 \
+    --label "Gentoo" \
+    --loader "\EFI\Gentoo\bzImage.efi" \
+    --unicode "initrd=\EFI\Gentoo\initramfs.img \
+    root=LABEL=<rootlabel> \
+    rootflags=subvol=activeroot \
+    rd.luks.uuid=<rootuuid> rd.luks.name=<rootuuid>=cryptroot \
+    rd.luks.key=/dev/disk/by-partuuid/<boot_key_partuuid>:/luks-keyfile.gpg \
+    rd.luks.allow-discards \
+    rd.luks.uuid=<swapuuid> rd.luks.name=<swapuuid>=cryptswap \
+    rd.luks.key=/dev/disk/by-partuuid/<boot_key_partuuid>:/swap-keyfile.gpg"
+```
+#### EFIBOOTMGR "example" with the built-in kernel command line
+```
+efibootmgr --create --disk BOOTDISK --part 1 \
+    --label "Gentoo" \
+    --loader "\EFI\Gentoo\bzImage.efi" \
+    --unicode "initrd=\EFI\Gentoo\initramfs.img \
 ```
