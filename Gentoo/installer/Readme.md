@@ -1,7 +1,7 @@
 # This is a guide and what the autoscript is doing
 ### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
 
-The disk visiual
+The disk visiual:
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -31,16 +31,14 @@ After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2
 mkdir /media/sda2
 mount /dev/sda2 /media/sda2
 ```
-### Key generation for SWAP partition
-Here we generate a keyfile, the keyfile of swap should be **8MB**
+### Key generation for SWAP and ROOT partition
+Here we generate a keyfile, the keyfile of should be **8MB**
 ```
+# Swap 
 dd if=/dev/urandom of=/media/sda2/swap-keyfile bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output swap-keyfile.gpg swap-keyfile
-```
-### Key generation for GPG symmetric keyfile for Root drive
-First we need to generate the key and the generation of the keyfile, so the keyfile size should be **8MB** with the command
-```
-dd if=/dev/urandom of=/media/sda2/luks-keyfil bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
+# Root
+dd if=/dev/urandom of=/media/sda2/luks-keyfile bs=8388608 count=1 # User can change bs= to any number that is higher then 512bytes
 gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
 ```
 
@@ -48,10 +46,10 @@ gpg --symmetric --cipher-algo AES256 --output luke-keyfile.gpg luks-keyfile
 We need to decrypt the gpg file so we can encrypt the partition using the keyfil.
 ```
 # swap
-gpg --decrypt --output /tmp/swap-keyfil swap-keyfile.gpg
+gpg --decrypt --output /tmp/swap-keyfile /media/sda2/swap-keyfile.gpg
 cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[swap_partition] --key-file=/tmp/swap-keyfile 
 # Root
-gpg --decrypt --output /tmp/luks-keyfile luks-keyfile.gpg
+gpg --decrypt --output /tmp/luks-keyfile /media/sda2/luks-keyfile.gpg
 cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 /dev/[root_pratition] --key-file=/tmp/luks-keyfile
 ```
 
@@ -62,10 +60,12 @@ cryptsetup open /dev/[root_partition] cryptroot --key-file=/tmp/luks-keyfile
 ```
 
 And then you might want to securely remove the **swap-keyfile/luks-keyfile** with the command:
-#### Caution do not delete the swap-keyfile/luks-keyfile in /media/sda2!
+#### Caution do not delete the swap-keyfile.gpg/luks-keyfile.gpg in /media/sda2! Or you data will be lost!
 ```
 shred -u /tmp/swap-keyfile
 shred -u /tmp/luks-keyfile
+shred -u /media/sda2/swap-keyfile
+shred -u /media/sda2/luks-keyfile
 ```
 
 ### Now we can start to format the partition for usage
@@ -89,7 +89,7 @@ btrfs subvolume create /mnt/root/var
 btrfs subvolume create /mnt/root/log
 btrfs subvolume create /mnt/root/tmp
 ```
-Then we need to create directory for the home, etc, var, log and tmp in directory /mnt/gentoo/.
+Then we need to create directory for the home, etc, var, log and tmp in directory /mnt/gentoo/
 ```
 mkdir /mnt/gentoo/home
 mkdir /mnt/gentoo/etc
@@ -149,15 +149,16 @@ key_type = "gpg"
 key_file = "/mnt/<mount_dir>/luks-keyfile.gpg"
 ```
 
+The script will allow the user to edit kernel manually! \
 When editing kernel user need to add kernel_cmdline or we can add --unicode for efibootmgr
 #### AMD64 kernel "example"
-*** change anyother kernel modules to have support to what you need to do ***
+***change any other kernel modules to have support to what you need to do***
 ```
 Processor type and features  --->
     [*] Built-in kernel command line
     (cryptdevice=UUID=<luks-uuid>:cryptroot root=/dev/mapper/cryptroot gpgkey=/dev/disk/by-uuid/<usb-uuid>:crypto_key.gpg cryptkey=rootfs:/crypto_key) Built-in kernel command string
 ```
-#### EFIBOOTMGR "example" without the built-in kernel command line
+#### EFIBOOTMGR "example" ***without*** the built-in kernel command line
 ```
 efibootmgr --create --disk BOOTDISK --part 1 \
     --label "Gentoo" \
@@ -171,7 +172,7 @@ efibootmgr --create --disk BOOTDISK --part 1 \
     rd.luks.uuid=<swapuuid> rd.luks.name=<swapuuid>=cryptswap \
     rd.luks.key=/dev/disk/by-partuuid/<boot_key_partuuid>:/swap-keyfile.gpg"
 ```
-#### EFIBOOTMGR "example" with the built-in kernel command line
+#### EFIBOOTMGR "example" ***with*** the built-in kernel command line
 ```
 efibootmgr --create --disk BOOTDISK --part 1 \
     --label "Gentoo" \
@@ -179,7 +180,7 @@ efibootmgr --create --disk BOOTDISK --part 1 \
     --unicode "initrd=\EFI\Gentoo\initramfs.img \
 ```
 
-!!! Potential issues !!!
+!!! Potential issues !!! \
 If gpg-keyfile mount to /tmp it might not be able to execute the decrypt because of fstab rules "defaults,noatime,nosuid,***noexec***,nodev,compress=lzo,subvol=tmp"
 
 Other sources: \
