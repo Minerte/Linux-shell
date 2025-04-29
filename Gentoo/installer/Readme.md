@@ -1,5 +1,5 @@
 # This is a guide and what the autoscript is doing
-### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that Readme.md only include the diskpepration with encryption and kernel changes that needs to be done. \ For more information please check the other sources at the bottom of the Readme.md.
+### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that Readme.md only include the diskpepration with encryption and kernel changes that needs to be done. For more information please check the other sources at the bottom of the Readme.md.
 
 The disk visiual:
 ```
