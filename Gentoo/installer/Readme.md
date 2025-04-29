@@ -1,7 +1,7 @@
 # This is a guide and what the autoscript is doing
-### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done. \
+### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
 
-The disk visiual.
+The disk visiual
 ```
 /dev/sda #boot drive
 ├── /dev/sda1      [EFI]   /efi      1 GB         fat32       Bootloader
@@ -182,7 +182,7 @@ efibootmgr --create --disk BOOTDISK --part 1 \
 !!! Potential issues !!!
 If gpg-keyfile mount to /tmp it might not be able to execute the decrypt because of fstab rules "defaults,noatime,nosuid,***noexec***,nodev,compress=lzo,subvol=tmp"
 
-Other sources:
+Other sources: \
 [Kernel/Command-line parameters](https://wiki.gentoo.org/wiki/Kernel/Command-line_parameters) \
 [EFI stub](https://wiki.gentoo.org/wiki/EFI_stub) \
-[GnuPG](https://wiki.gentoo.org/wiki/GnuPG) \
+[GnuPG](https://wiki.gentoo.org/wiki/GnuPG)
