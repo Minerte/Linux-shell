@@ -1,5 +1,5 @@
 # This is a guide and what the autoscript is doing
-### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that readme.md only include the diskpepration with encryption and kernel changes that needs to be done.
+### The guide is taken from [Full Disk Encryption from scratch](https://wiki.gentoo.org/wiki/Full_Disk_Encryption_From_Scratch) from the Gentoo wiki, also note that Readme.md only include the diskpepration with encryption and kernel changes that needs to be done. \ For more information please check the other sources at the bottom of the Readme.md.
 
 The disk visiual:
 ```
@@ -23,7 +23,7 @@ We need to create filesystem for /dev/sda1 and /dev/sda2 (our boot drive).
 ```
 mkfs.vfat -F 32 /dev/sda1 # Boot
 mkfs.ext4 /dev/sda2 # Key-file storage
-### **Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile**
+### Note that /dev/sda1 is the bootloader and /dev/sda2 is for storage of keyfile
 ```
 
 After successfully create a filesystem we need to mount /dev/sda2 to /media/sda2 so we can generate Keyfile to partition
@@ -185,5 +185,6 @@ If gpg-keyfile mount to /tmp it might not be able to execute the decrypt because
 
 Other sources: \
 [Kernel/Command-line parameters](https://wiki.gentoo.org/wiki/Kernel/Command-line_parameters) \
+[Gentoo AMD64 Handbook](https://wiki.gentoo.org/wiki/Handbook:AMD64) \
 [EFI stub](https://wiki.gentoo.org/wiki/EFI_stub) \
-[GnuPG](https://wiki.gentoo.org/wiki/GnuPG)
+[GnuPG](https://wiki.gentoo.org/wiki/GnuPG) 
